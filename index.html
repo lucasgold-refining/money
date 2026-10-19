@@ -33,7 +33,14 @@ nav button.on{color:var(--navy);font-weight:700}
 .hero .big{font-size:38px}
 .acct{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;border:0;background:var(--card);border-radius:14px;padding:16px 14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);font-size:17px;color:var(--text);text-align:left;min-height:64px}
 .acct b{font-size:20px;white-space:nowrap}
-.acct .chev{color:var(--muted);font-size:20px}
+.acctbox{background:var(--card);border-radius:14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}
+.acctbox > .acct{background:none;box-shadow:none;margin:0;border-radius:0;cursor:pointer}
+.acct .chev{flex:none;width:40px;min-height:46px;border:0;background:none;color:var(--muted);font-size:22px;display:inline-flex;align-items:center;justify-content:center;padding:0;transition:transform .15s}
+.acct .chev[aria-expanded=true]{transform:rotate(180deg);color:var(--navy)}
+.accpanel{border-top:1px solid var(--line);padding:4px 14px 12px}
+.accpanel .item{padding:10px 0}
+.accpanel .pbtns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
+.accpanel .pbtns .btn{margin:0;min-height:50px;padding:8px 4px;font-size:15px}
 .neg{color:var(--red)}
 .muted{color:var(--muted);font-size:14px}
 .warn{background:var(--amberbg);color:var(--amber);border-radius:12px;padding:12px 14px;font-weight:600;margin-bottom:12px;font-size:15px;border:0;width:100%;text-align:left;display:block}
@@ -102,7 +109,8 @@ header .eye[aria-pressed=true]{background:var(--gold);color:var(--navy)}
 .pv.masked{letter-spacing:1px;color:var(--muted)!important}
 .eyecard{display:flex;align-items:center;gap:10px}
 .eyecard .grow{flex:1;min-width:0}
-.hero .eyecard .grow{text-align:center;padding-left:56px}
+.hero .eyecard .grow{text-align:center}
+.fit{white-space:nowrap;overflow:hidden}
 .acct .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .acct .amtwrap{display:flex;align-items:center;gap:8px;flex:none}
 .dcard .big{font-size:34px}
@@ -123,7 +131,7 @@ h3{font-size:15px;margin:18px 0 4px;color:#344054}
 <div class="toast" id="toast"></div>
 <script>
 'use strict';
-const APP_V = 4;
+const APP_V = 5;
 const KEY = 'emz-money-v1';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function defaultState() {
@@ -227,7 +235,16 @@ function go(v, opts) {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   render(); window.scrollTo(0, 0);
 }
-function render() {
+function render() { renderInner(); fitBig(); }
+// Shrink big numbers so long amounts (e.g. ₱12,345,678.90) never run under the eye button.
+function fitBig() {
+  document.querySelectorAll('#app .hero .big, #app .dcard .big, #modal .big').forEach(el => {
+    el.classList.add('fit'); el.style.fontSize = '';
+    let f = parseFloat(getComputedStyle(el).fontSize);
+    while (el.scrollWidth > el.clientWidth + 1 && f > 20) { f -= 1; el.style.fontSize = f + 'px'; }
+  });
+}
+function renderInner() {
   const app = $('#app'); drawEyeAll();
   if (view === 'home') app.innerHTML = homeHTML();
   else if (view === 'add') { app.innerHTML = '<div class="card" id="addCard"></div>'; txForm($('#addCard'), null); }
@@ -242,15 +259,17 @@ function homeHTML() {
   let h = '';
   if (hasData() && (ds === null || ds >= 7))
     h += `<button class="warn" id="backupNag" onclick="go('set')">💾 ${ds === null ? 'You haven’t backed up yet.' : `Last backup was ${ds} days ago.`} Tap to back up.</button>`;
-  h += `<div class="card hero" id="totalCard"><div class="eyecard"><div class="grow"><div class="lbl">Total balance</div><div class="big" id="totalBal">${amt(tb, 'total', tb < 0 ? 'neg' : '')}</div></div>${eyeBtn('total', 'total balance')}</div></div>`;
+  // v5 order: Net worth (hero) · Total balance · accounts · Owed to me
+  h += `<div class="card hero" id="netCard"><div class="eyecard"><div class="grow"><div class="lbl">Net worth <span class="muted">(balance + owed)</span></div><div class="big" id="netWorth">${amt(tb + lt.out, 'net', tb + lt.out < 0 ? 'neg' : '')}</div></div>${eyeBtn('net', 'net worth')}</div></div>`;
+  h += `<div class="card" id="totalCard"><div class="eyecard"><div class="grow"><div class="lbl">Total balance</div><div class="mid" id="totalBal">${amt(tb, 'total', tb < 0 ? 'neg' : '')}</div></div>${eyeBtn('total', 'total balance')}</div></div>`;
   for (const a of S.accounts) {
     const b = balance(a.id);
-    h += `<div class="acct" role="button" tabindex="0" data-acct="${esc(a.id)}" onclick="openAccount('${esc(a.id)}')"><span class="nm">${esc(a.name)}</span><span class="amtwrap"><b>${amt(b, 'a:' + a.id, b < 0 ? 'neg' : '')}</b>${eyeBtn('a:' + a.id, a.name)}<span class="chev">›</span></span></div>`;
+    const op = openAccts.has(a.id);
+    h += `<div class="acctbox${op ? ' open' : ''}" data-box="${esc(a.id)}"><div class="acct" role="button" tabindex="0" data-acct="${esc(a.id)}" aria-expanded="${op}" onclick="toggleAcct('${esc(a.id)}')"><span class="nm">${esc(a.name)}</span><span class="amtwrap"><b>${amt(b, 'a:' + a.id, b < 0 ? 'neg' : '')}</b><span class="chev" aria-expanded="${op}" aria-label="${op ? 'Collapse' : 'Expand'} ${esc(a.name)}">▾</span>${eyeBtn('a:' + a.id, a.name)}</span></div>${op ? acctPanel(a.id) : ''}</div>`;
   }
   h += `<div class="acct" role="button" tabindex="0" id="owedCard" onclick="go('loans')"><span class="grow" style="flex:1;min-width:0;display:flex;flex-direction:column">
     <span class="lbl">Owed to me</span><span class="mid" id="owedTotal">${amt(lt.out, 'owed')}</span>
     <span class="muted" id="owedMeta">${lt.open} open loan${lt.open === 1 ? '' : 's'}</span></span>${eyeBtn('owed', 'owed to me')}</div>`;
-  h += `<div class="card" id="netCard"><div class="eyecard"><div class="grow"><div class="lbl">Net worth <span class="muted">(balance + owed)</span></div><div class="mid" id="netWorth">${amt(tb + lt.out, 'net', tb + lt.out < 0 ? 'neg' : '')}</div></div>${eyeBtn('net', 'net worth')}</div></div>`;
   h += `<div class="row2"><button class="btn" onclick="go('add')">➕ Add money</button><button class="btn gold" onclick="lendForm()">🤝 Lend money</button></div>`;
   return h;
 }
@@ -334,8 +353,9 @@ function editTx(id) { const t = S.tx.find(x => x.id === id); if (!t) return; con
 function delTx(id) { if (!confirm('Delete this entry?')) return; S.tx = S.tx.filter(x => x.id !== id); save(); refreshAfterEdit(); toast('Deleted'); }
 
 // ---------- account detail ----------
-function openAccount(id) {
-  const a = acct(id); if (!a) return;
+const openAccts = new Set(); // Home cards expanded inline (this session only)
+function toggleAcct(id) { if (openAccts.has(id)) openAccts.delete(id); else openAccts.add(id); render(); }
+function acctRows(id) {
   const rows = [];
   for (const t of S.tx) {
     if (t.type === 'in' && t.account === id) rows.push({ d: t, sign: 1, t: 'Money in', kind: 'tx' });
@@ -345,22 +365,36 @@ function openAccount(id) {
   }
   for (const l of S.loans) for (const t of tranches(l)) if (t.account != null && t.account === id) rows.push({ d: t, sign: -1, t: (t.first ? 'Lent to ' : 'Lent more to ') + l.borrower, kind: 'loan', loan: l.id });
   for (const r of S.repayments) if (r.account === id) { const l = S.loans.find(x => x.id === r.loanId); rows.push({ d: r, sign: 1, t: 'Repaid by ' + (l ? l.borrower : '?'), kind: 'loan', loan: r.loanId }); }
-  rows.sort((p, q) => byNewest(p.d, q.d));
+  return rows.sort((p, q) => byNewest(p.d, q.d));
+}
+function acctRowHTML(r, id, inModal) {
+  const k = 'a:' + id, cls = r.x ? 'xfer' : r.sign > 0 ? 'plus' : 'minus', ro = inModal ? `reopen=()=>openAccount('${esc(id)}')` : 'reopen=null';
+  return `<div class="item"><div class="body"><div class="t">${esc(r.t)}</div><div class="muted">${fmtDate(r.d.date)}${r.d.note ? ' · ' + esc(r.d.note) : ''}</div></div>
+      <div class="amtc ${hid(k) ? '' : cls}">${hid(k) ? '' : r.sign > 0 ? '+' : '−'}${amt(r.d.amount, k)}</div>
+      <div class="acts">${r.kind === 'tx' ? `<button onclick="${ro};editTx('${r.d.id}')" aria-label="Edit">✏️</button><button class="del" onclick="${ro};delTx('${r.d.id}')" aria-label="Delete">🗑️</button>`
+        : `<button onclick="openLoan('${r.loan}')" aria-label="Open loan">›</button>`}</div></div>`;
+}
+// Inline panel under a Home account card: last 5 entries + Add / See all / Edit account
+function acctPanel(id) {
+  const a = acct(id), rows = acctRows(id), k = 'a:' + id;
+  let h = `<div class="accpanel" id="panel-${esc(id)}">`;
+  if (!rows.length) h += `<div class="empty">No entries yet${cents(a.opening) ? ` · opening balance ${amt(a.opening, k)}` : ''}</div>`;
+  for (const r of rows.slice(0, 5)) h += acctRowHTML(r, id, false);
+  h += `<div class="pbtns"><button class="btn" onclick="addMode='in';addAcct='${esc(id)}';go('add')">➕ Add</button><button class="btn light seeall" onclick="openAccount('${esc(id)}')">See all${rows.length > 5 ? ' (' + rows.length + ')' : ''}</button><button class="btn light" onclick="go('set')">✏️ Edit</button></div></div>`;
+  return h;
+}
+function openAccount(id) {
+  const a = acct(id); if (!a) return;
+  const rows = acctRows(id);
   const b = balance(id), k = 'a:' + id;
   let h = mhead(esc(a.name)) + `<div class="lbl" style="margin-top:8px">Balance</div><div class="big" id="acctBal">${amt(b, k, b < 0 ? 'neg' : '')}</div>
     <div class="row2"><button class="btn" onclick="closeModal();addMode='in';addAcct='${esc(id)}';go('add');">➕ Add</button><button class="btn light" onclick="closeModal();go('set')">✏️ Edit account</button></div>
     <h3>Recent</h3><div id="acctRows">`;
   if (!rows.length) h += `<div class="empty">No entries yet${cents(a.opening) ? ` · opening balance ${amt(a.opening, k)}` : ''}</div>`;
-  for (const r of rows) {
-    const cls = r.x ? 'xfer' : r.sign > 0 ? 'plus' : 'minus';
-    h += `<div class="item"><div class="body"><div class="t">${esc(r.t)}</div><div class="muted">${fmtDate(r.d.date)}${r.d.note ? ' · ' + esc(r.d.note) : ''}</div></div>
-      <div class="amtc ${hid(k) ? '' : cls}">${hid(k) ? '' : r.sign > 0 ? '+' : '−'}${amt(r.d.amount, k)}</div>
-      <div class="acts">${r.kind === 'tx' ? `<button onclick="reopen=()=>openAccount('${esc(id)}');editTx('${r.d.id}')" aria-label="Edit">✏️</button><button class="del" onclick="reopen=()=>openAccount('${esc(id)}');delTx('${r.d.id}')" aria-label="Delete">🗑️</button>`
-        : `<button onclick="openLoan('${r.loan}')" aria-label="Open loan">›</button>`}</div></div>`;
-  }
+  for (const r of rows) h += acctRowHTML(r, id, true);
   if (cents(a.opening) && rows.length) h += `<div class="item"><div class="body"><div class="t">Opening balance</div></div><div class="amtc">${amt(a.opening, k)}</div></div>`;
   h += '</div>';
-  openModal(h);
+  openModal(h); fitBig();
 }
 
 // ---------- dashboard (four totals only) ----------
@@ -613,6 +647,7 @@ document.addEventListener('input', e => { if (e.target.type === 'date') hintDate
 document.addEventListener('change', e => { if (e.target.type === 'date') hintDates(); });
 new MutationObserver(hintDates).observe(document.body, { childList: true, subtree: true });
 render();
+window.addEventListener('resize', fitBig);
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
