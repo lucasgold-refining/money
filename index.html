@@ -106,6 +106,7 @@ header .eye[aria-pressed=true]{background:var(--gold);color:var(--navy)}
 .acct .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .acct .amtwrap{display:flex;align-items:center;gap:8px;flex:none}
 .dcard .big{font-size:34px}
+.chip.none{border-style:dashed;font-weight:600}
 h3{font-size:15px;margin:18px 0 4px;color:#344054}
 </style>
 </head>
@@ -122,7 +123,7 @@ h3{font-size:15px;margin:18px 0 4px;color:#344054}
 <div class="toast" id="toast"></div>
 <script>
 'use strict';
-const APP_V = 3;
+const APP_V = 4;
 const KEY = 'emz-money-v1';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function defaultState() {
@@ -135,8 +136,8 @@ function defaultState() {
       { id: 'cash', name: 'Cash on hand', type: 'cash', opening: 0 } // v2: new installs only; existing data is never changed
     ],
     tx: [],          // {id,type:'in'|'out'|'transfer',amount,account,to,date,note,created}
-    loans: [],       // {id,borrower,amount,account,date,note,created} (v3: due dates no longer used; any old 'due'/'dueDate' is kept but ignored)
-    repayments: [],  // {id,loanId,amount,account,date,note,created}
+    loans: [],       // {id,borrower,amount,account|null,date,note,created,more:[{id,amount,account|null,date,note,created}]} — account null = not from an account; 'more' = later tranches (v4); old 'due'/'dueDate' kept but ignored
+    repayments: [],  // {id,loanId,amount,account|null,date,note,created} — account null = not into an account (v4)
     lastBackup: null
   };
 }
@@ -159,7 +160,10 @@ const peso = n => (cents(n) < 0 ? '−₱' : '₱') + (Math.abs(cents(n)) / 100)
 const todayISO = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 const fmtDate = iso => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; };
 const acct = id => S.accounts.find(a => a.id === id);
-const acctName = id => { const a = acct(id); return a ? a.name : '(deleted account)'; };
+const acctName = id => { if (id == null || id === '') return 'No account'; const a = acct(id); return a ? a.name : '(deleted account)'; };
+const NONE = '__none'; // chip value for "None" in loan / repayment forms
+// A loan's tranches: the original amount first, then any 'Add more' tranches (v4). Old data without 'more' still works.
+const tranches = l => [{ id: null, first: true, amount: l.amount, account: l.account == null ? null : l.account, date: l.date, note: l.note, created: l.created }, ...(Array.isArray(l.more) ? l.more : [])];
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2400); }
 // ---------- hide amounts (same eye pattern as the gold tracker; remembered on this phone) ----------
 // Kept in its own key so it never touches the money data or backups. Keys: total, owed, net, a:<accountId>.
@@ -193,18 +197,19 @@ function balanceC(id) {
     if (t.type === 'out' && t.account === id) c -= cents(t.amount);
     if (t.type === 'transfer') { if (t.account === id) c -= cents(t.amount); if (t.to === id) c += cents(t.amount); }
   }
-  for (const l of S.loans) if (l.account === id) c -= cents(l.amount);
-  for (const r of S.repayments) if (r.account === id) c += cents(r.amount);
+  for (const l of S.loans) for (const t of tranches(l)) if (t.account != null && t.account === id) c -= cents(t.amount);
+  for (const r of S.repayments) if (r.account != null && r.account === id) c += cents(r.amount);
   return c;
 }
 const balance = id => balanceC(id) / 100;
 const totalBalance = () => S.accounts.reduce((s, a) => s + balanceC(a.id), 0) / 100;
 const repaysOf = id => S.repayments.filter(r => r.loanId === id);
 function loanInfo(l) {
-  const repaidC = repaysOf(l.id).reduce((s, r) => s + cents(r.amount), 0);
-  const outC = Math.max(0, cents(l.amount) - repaidC);
-  const status = outC === 0 ? 'Paid' : 'Open'; // v3: no overdue tracking
-  return { lent: cents(l.amount) / 100, repaid: repaidC / 100, out: outC / 100, status };
+  const lentC = tranches(l).reduce((x, t) => x + cents(t.amount), 0);
+  const repaidC = repaysOf(l.id).reduce((x, r) => x + cents(r.amount), 0);
+  const outC = Math.max(0, lentC - repaidC);
+  const status = outC === 0 ? 'Paid' : 'Open'; // no overdue tracking
+  return { lent: lentC / 100, repaid: repaidC / 100, out: outC / 100, status };
 }
 function loanTotals() {
   let outC = 0, open = 0;
@@ -261,9 +266,13 @@ function openModal(html) {
 }
 function closeModal() { const m = $('#modal'); if (m) m.remove(); document.body.style.overflow = ''; }
 const mhead = t => `<div class="mh"><h2>${t}</h2><button class="x" onclick="closeModal()" aria-label="Close">✕</button></div>`;
-function chipsHTML(id, sel, exclude) {
-  return `<div class="chips" id="${id}">` + S.accounts.filter(a => a.id !== exclude).map(a => `<button type="button" class="chip ${a.id === sel ? 'on' : ''}" data-id="${esc(a.id)}">${esc(a.name)}</button>`).join('') + '</div>';
+function chipsHTML(id, sel, exclude, noneLabel) {
+  return `<div class="chips" id="${id}">` + S.accounts.filter(a => a.id !== exclude).map(a => `<button type="button" class="chip ${a.id === sel ? 'on' : ''}" data-id="${esc(a.id)}">${esc(a.name)}</button>`).join('')
+    + (noneLabel ? `<button type="button" class="chip none ${sel === NONE ? 'on' : ''}" data-id="${NONE}">${esc(noneLabel)}</button>` : '') + '</div>';
 }
+// account picked in a chips row that has a None option: undefined = nothing picked, null = None
+const chipAcct = (root, id) => { const v = chipVal(root, id); return v == null ? undefined : v === NONE ? null : v; };
+const selOf = acc => acc == null ? NONE : acc;
 function bindChips(root, id, onPick) {
   root.querySelectorAll(`#${id} .chip`).forEach(c => c.onclick = () => {
     root.querySelectorAll(`#${id} .chip`).forEach(x => x.classList.remove('on')); c.classList.add('on'); onPick && onPick(c.dataset.id);
@@ -334,7 +343,7 @@ function openAccount(id) {
     if (t.type === 'transfer' && t.account === id) rows.push({ d: t, sign: -1, t: 'Transfer to ' + acctName(t.to), kind: 'tx', x: 1 });
     if (t.type === 'transfer' && t.to === id) rows.push({ d: t, sign: 1, t: 'Transfer from ' + acctName(t.account), kind: 'tx', x: 1 });
   }
-  for (const l of S.loans) if (l.account === id) rows.push({ d: l, sign: -1, t: 'Lent to ' + l.borrower, kind: 'loan', loan: l.id });
+  for (const l of S.loans) for (const t of tranches(l)) if (t.account != null && t.account === id) rows.push({ d: t, sign: -1, t: (t.first ? 'Lent to ' : 'Lent more to ') + l.borrower, kind: 'loan', loan: l.id });
   for (const r of S.repayments) if (r.account === id) { const l = S.loans.find(x => x.id === r.loanId); rows.push({ d: r, sign: 1, t: 'Repaid by ' + (l ? l.borrower : '?'), kind: 'loan', loan: r.loanId }); }
   rows.sort((p, q) => byNewest(p.d, q.d));
   const b = balance(id), k = 'a:' + id;
@@ -372,6 +381,7 @@ function dashHTML() {
 }
 
 // ---------- loans ----------
+const fromTxt = acc => acc == null ? 'Not from an account' : 'From ' + acctName(acc);
 function loansHTML() {
   const lt = loanTotals();
   let h = `<div class="card hero"><div class="lbl">Owed to me</div><div class="big" id="loansOwed">${amt(lt.out, 'owed')}</div>
@@ -383,9 +393,10 @@ function loansHTML() {
   let paidHdr = false;
   for (const { l, i } of list) {
     if (i.status === 'Paid' && !paidHdr) { h += '<h3>Paid</h3>'; paidHdr = true; }
+    const nMore = tranches(l).length - 1;
     h += `<button class="loan ${i.status.toLowerCase()}" data-loan="${l.id}" onclick="openLoan('${l.id}')">
       <div class="top"><span class="who">${esc(l.borrower)}</span><span class="badge ${i.status}">${i.status}</span></div>
-      <div class="muted lgiven">Given ${fmtDate(l.date)}</div>
+      <div class="muted lgiven">Given ${fmtDate(l.date)}${nMore ? ` · +${nMore} more` : ''}</div>
       <div class="nums"><div><small>Lent</small><b>${amt(i.lent, 'owed')}</b></div><div><small>Repaid</small><b>${amt(i.repaid, 'owed')}</b></div><div><small>Outstanding</small><b>${amt(i.out, 'owed')}</b></div></div></button>`;
   }
   return h;
@@ -393,11 +404,12 @@ function loansHTML() {
 function lendForm(id) {
   const l = id ? S.loans.find(x => x.id === id) : null;
   const names = [...new Set(S.loans.map(x => x.borrower))].sort();
+  const moreC = l ? tranches(l).slice(1).reduce((x, t) => x + cents(t.amount), 0) : 0;
   const sh = openModal(mhead(l ? 'Edit loan' : 'Lend money') + `
     <label for="lBor">Borrower</label><input id="lBor" list="borList" value="${esc(l ? l.borrower : '')}" placeholder="Name" autocomplete="off">
     <datalist id="borList">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
-    <label for="lAmt">Amount (₱)</label><input id="lAmt" class="amt" inputmode="decimal" placeholder="0.00" value="${l ? esc(l.amount) : ''}">
-    <label>From account</label>${chipsHTML('lAcct', l ? l.account : (S.accounts[0] || {}).id)}
+    <label for="lAmt">${l && moreC ? 'First amount lent (₱)' : 'Amount (₱)'}</label><input id="lAmt" class="amt" inputmode="decimal" placeholder="0.00" value="${l ? esc(l.amount) : ''}">
+    <label>From account</label>${chipsHTML('lAcct', l ? selOf(l.account) : (S.accounts[0] || {}).id, null, 'None (already given / not from an account)')}
     <label for="lDate">Date lent</label><input id="lDate" type="date" value="${esc(l ? l.date : todayISO())}">
     <label for="lNote">Note (optional)</label><input id="lNote" value="${esc(l ? l.note || '' : '')}">
     <button class="btn gold" id="saveLoan">${l ? 'Save changes' : 'Save loan'}</button>
@@ -405,30 +417,66 @@ function lendForm(id) {
   bindChips(sh, 'lAcct');
   if (l) sh.querySelector('#cancelLoan').onclick = () => openLoan(l.id);
   sh.querySelector('#saveLoan').onclick = () => {
-    const borrower = sh.querySelector('#lBor').value.trim(), amount = parseAmt(sh.querySelector('#lAmt').value), account = chipVal(sh, 'lAcct');
+    const borrower = sh.querySelector('#lBor').value.trim(), amount = parseAmt(sh.querySelector('#lAmt').value), account = chipAcct(sh, 'lAcct');
     if (!borrower) { toast('Enter the borrower’s name'); return; }
     if (!(amount > 0)) { toast('Enter an amount above ₱0'); return; }
-    if (!account) { toast('Pick an account'); return; }
-    if (l && cents(amount) < cents(loanInfo(l).repaid)) { toast(`Already repaid ${amtT(loanInfo(l).repaid, 'owed')} — amount can’t be less`); return; }
+    if (account === undefined) { toast('Pick an account or None'); return; }
+    if (l && cents(amount) + moreC < cents(loanInfo(l).repaid)) { toast(`Already repaid ${amtT(loanInfo(l).repaid, 'owed')} — total lent can’t be less`); return; }
     const rec = { borrower, amount, account, date: sh.querySelector('#lDate').value || todayISO(), note: sh.querySelector('#lNote').value.trim() };
     if (l) { Object.assign(l, rec); save(); render(); openLoan(l.id); toast('Saved'); }
-    else { S.loans.push(Object.assign({ id: uid(), created: Date.now() }, rec)); save(); closeModal(); go('loans'); toast(`Lent ${amtT(amount, 'owed')} to ${borrower}`); }
+    else { S.loans.push(Object.assign({ id: uid(), created: Date.now(), more: [] }, rec)); save(); closeModal(); go('loans'); toast(`Lent ${amtT(amount, 'owed')} to ${borrower}`); }
   };
+}
+// Add more to an existing loan (a new tranche), or edit one of those tranches.
+function trancheForm(loanId, tid) {
+  const l = S.loans.find(x => x.id === loanId); if (!l) return;
+  if (!Array.isArray(l.more)) l.more = [];
+  const t = tid ? l.more.find(x => x.id === tid) : null;
+  const sh = openModal(mhead(t ? 'Edit added amount' : 'Add more to this loan') + `<div class="muted">${esc(l.borrower)} · lent so far ${amt(loanInfo(l).lent, 'owed')}</div>
+    <label for="tAmt">Amount (₱)</label><input id="tAmt" class="amt" inputmode="decimal" placeholder="0.00" value="${t ? esc(t.amount) : ''}">
+    <label>From account</label>${chipsHTML('tAcct', t ? selOf(t.account) : (l.account != null && acct(l.account) ? l.account : (S.accounts[0] || {}).id), null, 'None (already given / not from an account)')}
+    <label for="tDate">Date lent</label><input id="tDate" type="date" value="${esc(t ? t.date : todayISO())}">
+    <label for="tNote">Note (optional)</label><input id="tNote" value="${esc(t ? t.note || '' : '')}">
+    <button class="btn gold" id="saveTranche">${t ? 'Save changes' : 'Add to loan'}</button>
+    <button class="btn light" id="cancelTranche">Cancel</button>`);
+  bindChips(sh, 'tAcct');
+  sh.querySelector('#cancelTranche').onclick = () => openLoan(loanId);
+  sh.querySelector('#saveTranche').onclick = () => {
+    const amount = parseAmt(sh.querySelector('#tAmt').value), account = chipAcct(sh, 'tAcct');
+    if (!(amount > 0)) { toast('Enter an amount above ₱0'); return; }
+    if (account === undefined) { toast('Pick an account or None'); return; }
+    if (t && cents(loanInfo(l).lent) - cents(t.amount) + cents(amount) < cents(loanInfo(l).repaid)) { toast('Total lent can’t be less than what’s been repaid'); return; }
+    const rec = { amount, account, date: sh.querySelector('#tDate').value || todayISO(), note: sh.querySelector('#tNote').value.trim() };
+    if (t) Object.assign(t, rec); else l.more.push(Object.assign({ id: uid(), created: Date.now() }, rec));
+    save(); render(); openLoan(loanId); toast(t ? 'Saved' : `Added ${amtT(amount, 'owed')} · ${l.borrower} now owes ${amtT(loanInfo(l).out, 'owed')}`);
+  };
+}
+function delTranche(loanId, tid) {
+  const l = S.loans.find(x => x.id === loanId); if (!l || !Array.isArray(l.more)) return;
+  const t = l.more.find(x => x.id === tid); if (!t) return;
+  if (cents(loanInfo(l).lent) - cents(t.amount) < cents(loanInfo(l).repaid)) { toast('Can’t remove — more has been repaid than would be left'); return; }
+  if (!confirm(`Remove the ${amtT(t.amount, 'owed')} added on ${fmtDate(t.date)}?`)) return;
+  l.more = l.more.filter(x => x !== t); save(); render(); openLoan(loanId); toast('Removed');
 }
 function openLoan(id) {
   const l = S.loans.find(x => x.id === id); if (!l) { closeModal(); return; }
-  const i = loanInfo(l), reps = repaysOf(id).sort(byNewest);
+  const i = loanInfo(l), reps = repaysOf(id).sort(byNewest), tr = tranches(l);
   let h = mhead(esc(l.borrower)) + `<div style="margin-top:6px"><span class="badge ${i.status}" id="loanStatus">${i.status}</span></div>
-    <div class="sumgrid"><div><small>Lent</small><b>${amt(i.lent, 'owed')}</b></div><div><small>Repaid</small><b>${amt(i.repaid, 'owed')}</b></div><div><small>Outstanding</small><b id="loanOut">${amt(i.out, 'owed')}</b></div></div>
-    <div class="lbl" style="margin-top:10px;font-size:16px;color:var(--text)" id="loanGiven">Given ${fmtDate(l.date)}</div><div class="muted">From ${esc(acctName(l.account))}${l.note ? '<br>' + esc(l.note) : ''}</div>
+    <div class="sumgrid"><div><small>Lent</small><b id="loanLent">${amt(i.lent, 'owed')}</b></div><div><small>Repaid</small><b>${amt(i.repaid, 'owed')}</b></div><div><small>Outstanding</small><b id="loanOut">${amt(i.out, 'owed')}</b></div></div>
+    <div class="lbl" style="margin-top:10px;font-size:16px;color:var(--text)" id="loanGiven">Given ${fmtDate(l.date)}</div><div class="muted" id="loanFrom">${esc(fromTxt(l.account))}${l.note ? '<br>' + esc(l.note) : ''}</div>
     ${i.status !== 'Paid' ? '<button class="btn green" id="repayBtn">💵 Record repayment</button>' : ''}
-    <h3>Repayments</h3>`;
+    <button class="btn light" id="moreBtn">➕ Add more to this loan</button>
+    <h3>Lent</h3><div id="trancheList">`;
+  for (const t of tr) h += `<div class="item tranche"><div class="body"><div class="t">Given ${fmtDate(t.date)}</div><div class="muted">${esc(fromTxt(t.account))}${t.note ? ' · ' + esc(t.note) : ''}</div></div>
+    <div class="amtc">${amt(t.amount, 'owed')}</div><div class="acts">${t.first ? `<button onclick="lendForm('${id}')" aria-label="Edit">✏️</button>` : `<button onclick="trancheForm('${id}','${t.id}')" aria-label="Edit">✏️</button><button class="del" onclick="delTranche('${id}','${t.id}')" aria-label="Delete">🗑️</button>`}</div></div>`;
+  h += `</div><h3>Repayments</h3><div id="repayList">`;
   if (!reps.length) h += '<div class="empty">None yet</div>';
-  for (const r of reps) h += `<div class="item"><div class="body"><div class="t">Into ${esc(acctName(r.account))}</div><div class="muted">${fmtDate(r.date)}${r.note ? ' · ' + esc(r.note) : ''}</div></div>
+  for (const r of reps) h += `<div class="item repay"><div class="body"><div class="t">${r.account == null ? 'Not into an account' : 'Into ' + esc(acctName(r.account))}</div><div class="muted">${fmtDate(r.date)}${r.note ? ' · ' + esc(r.note) : ''}</div></div>
     <div class="amtc ${hid('owed') ? '' : 'plus'}">${hid('owed') ? '' : '+'}${amt(r.amount, 'owed')}</div><div class="acts"><button onclick="repayForm('${id}','${r.id}')" aria-label="Edit">✏️</button><button class="del" onclick="delRepay('${r.id}')" aria-label="Delete">🗑️</button></div></div>`;
-  h += `<div class="row2"><button class="btn light" id="editLoan">✏️ Edit loan</button><button class="btn danger" id="delLoan">🗑️ Delete loan</button></div>`;
+  h += `</div><div class="row2"><button class="btn light" id="editLoan">✏️ Edit loan</button><button class="btn danger" id="delLoan">🗑️ Delete loan</button></div>`;
   const sh = openModal(h);
   const rb = sh.querySelector('#repayBtn'); if (rb) rb.onclick = () => repayForm(id);
+  sh.querySelector('#moreBtn').onclick = () => trancheForm(id);
   sh.querySelector('#editLoan').onclick = () => lendForm(id);
   sh.querySelector('#delLoan').onclick = () => {
     if (!confirm(`Delete this loan to ${l.borrower}${reps.length ? ` and its ${reps.length} repayment${reps.length > 1 ? 's' : ''}` : ''}?`)) return;
@@ -442,7 +490,7 @@ function repayForm(loanId, repId) {
   const sh = openModal(mhead(r ? 'Edit repayment' : 'Record repayment') + `<div class="muted">${esc(l.borrower)} · outstanding ${amt(maxC / 100, 'owed')}</div>
     <label for="rAmt">Amount (₱)</label><input id="rAmt" class="amt" inputmode="decimal" placeholder="0.00" value="${r ? esc(r.amount) : ''}">
     ${r ? '' : `<button type="button" class="chip" id="rFull" style="margin-top:8px">Full amount${hid('owed') ? '' : ' ' + peso(maxC / 100)}</button>`}
-    <label>Into account</label>${chipsHTML('rAcct', r ? r.account : (acct(l.account) ? l.account : (S.accounts[0] || {}).id))}
+    <label>Into account</label>${chipsHTML('rAcct', r ? selOf(r.account) : (l.account != null && acct(l.account) ? l.account : (S.accounts[0] || {}).id), null, 'None (not into an account)')}
     <label for="rDate">Date</label><input id="rDate" type="date" value="${esc(r ? r.date : todayISO())}">
     <label for="rNote">Note (optional)</label><input id="rNote" value="${esc(r ? r.note || '' : '')}">
     <button class="btn green" id="saveRepay">${r ? 'Save changes' : 'Save repayment'}</button>
@@ -451,10 +499,10 @@ function repayForm(loanId, repId) {
   const full = sh.querySelector('#rFull'); if (full) full.onclick = () => { sh.querySelector('#rAmt').value = (maxC / 100).toFixed(2); };
   sh.querySelector('#cancelRepay').onclick = () => openLoan(loanId);
   sh.querySelector('#saveRepay').onclick = () => {
-    const amount = parseAmt(sh.querySelector('#rAmt').value), account = chipVal(sh, 'rAcct');
+    const amount = parseAmt(sh.querySelector('#rAmt').value), account = chipAcct(sh, 'rAcct');
     if (!(amount > 0)) { toast('Enter an amount above ₱0'); return; }
     if (cents(amount) > maxC) { toast(`That’s more than the ${amtT(maxC / 100, 'owed')} outstanding`); return; }
-    if (!account) { toast('Pick an account'); return; }
+    if (account === undefined) { toast('Pick an account or None'); return; }
     const rec = { amount, account, date: sh.querySelector('#rDate').value || todayISO(), note: sh.querySelector('#rNote').value.trim() };
     if (r) Object.assign(r, rec); else S.repayments.push(Object.assign({ id: uid(), loanId, created: Date.now() }, rec));
     save(); render(); openLoan(loanId);
@@ -489,7 +537,7 @@ function bindSettings() {
     row.querySelector('.aname').onchange = e => { const v = e.target.value.trim(); if (!v) { e.target.value = a.name; toast('Name can’t be empty'); return; } a.name = v; save(); toast('Renamed'); };
     row.querySelector('.aopen').onchange = e => { const v = parseAmt(e.target.value || 0); if (isNaN(v)) { e.target.value = (cents(a.opening) / 100).toFixed(2); toast('Not a valid amount'); return; } a.opening = v; e.target.value = v.toFixed(2); save(); toast('Opening balance saved'); };
     row.querySelector('.adel').onclick = () => {
-      const used = S.tx.filter(t => t.account === a.id || t.to === a.id).length + S.loans.filter(l => l.account === a.id).length + S.repayments.filter(r => r.account === a.id).length;
+      const used = S.tx.filter(t => t.account === a.id || t.to === a.id).length + S.loans.reduce((n, l) => n + tranches(l).filter(t => t.account === a.id).length, 0) + S.repayments.filter(r => r.account === a.id).length;
       if (S.accounts.length <= 1) { toast('You need at least one account'); return; }
       if (used) { toast(`${a.name} has ${used} entr${used === 1 ? 'y' : 'ies'} — delete or move them first`); return; }
       if (!confirm(`Delete account “${a.name}”?`)) return;
@@ -547,7 +595,7 @@ function csvText() {
   for (const a of S.accounts) rows.push(['', 'Opening balance', a.name, '', r2(a.opening).toFixed(2), '', '']);
   const all = [];
   for (const t of S.tx) all.push([t.date, t.type === 'in' ? 'Money in' : t.type === 'out' ? 'Money out' : 'Transfer', acctName(t.account), t.type === 'transfer' ? acctName(t.to) : '', r2(t.amount).toFixed(2), '', t.note || '']);
-  for (const l of S.loans) all.push([l.date, 'Loan given', acctName(l.account), '', r2(l.amount).toFixed(2), l.borrower, l.note || '']);
+  for (const l of S.loans) for (const t of tranches(l)) all.push([t.date, t.first ? 'Loan given' : 'Loan given (more)', acctName(t.account), '', r2(t.amount).toFixed(2), l.borrower, t.note || '']);
   for (const r of S.repayments) { const l = S.loans.find(x => x.id === r.loanId); all.push([r.date, 'Repayment', acctName(r.account), '', r2(r.amount).toFixed(2), l ? l.borrower : '', r.note || '']); }
   all.sort((a, b) => a[0].localeCompare(b[0])).forEach(r => { r[0] = fmtDate(r[0]); rows.push(r); });
   return rows.map(r => r.map(q).join(',')).join('\n');
