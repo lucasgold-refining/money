@@ -100,6 +100,8 @@ textarea{min-height:140px;font-size:13px;font-family:ui-monospace,Menlo,monospac
 .iconbtn{border:0;background:var(--redbg);color:var(--red);border-radius:10px;min-height:50px;font-size:18px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--text);color:#fff;padding:12px 18px;border-radius:12px;font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:40;max-width:90%;text-align:center}
 .toast.show{opacity:.92}
+.updToast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--plum);color:#fff;border:1px solid var(--rose);padding:10px 16px;border-radius:999px;font:700 14px 'Nunito',sans-serif;z-index:41;box-shadow:0 4px 14px rgba(58,31,51,.25);white-space:nowrap}
+.updToast[hidden]{display:none}
 .empty{text-align:center;color:var(--muted);padding:20px 10px}
 .hidden{display:none!important}
 .modal{position:fixed;inset:0;background:rgba(45,15,38,.55);z-index:30;display:flex;align-items:flex-end;justify-content:center}
@@ -140,9 +142,10 @@ h3{font-size:15px;margin:18px 0 4px;color:var(--label)}
   <button data-v="set"><span class="ic">⚙️</span>Settings</button>
 </nav>
 <div class="toast" id="toast"></div>
+<button class="updToast" id="updToast" hidden>New version ready · Tap to update</button>
 <script>
 'use strict';
-const APP_V = 6;
+const APP_V = 7;
 const KEY = 'emz-money-v1';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function defaultState() {
@@ -171,7 +174,8 @@ function load() {
 function save() { localStorage.setItem(KEY, JSON.stringify(S)); freshStart = false; if (typeof onDataSaved === 'function') onDataSaved(); }
 load();
 let storagePersisted = null;
-if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(v => { storagePersisted = v; if (typeof view !== 'undefined' && view === 'set') render(); }).catch(() => {});
+// v7: asked after first paint (startup block at the bottom) — only the Settings status uses it.
+function askPersist() { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(v => { storagePersisted = v; if (typeof view !== 'undefined' && view === 'set') render(); }).catch(() => {}); }
 
 // ---------- helpers ----------
 const $ = s => document.querySelector(s);
@@ -254,8 +258,10 @@ function render() { renderInner(); fitBig(); }
 function fitBig() {
   document.querySelectorAll('#app .hero .big, #app .dcard .big, #modal .big').forEach(el => {
     el.classList.add('fit'); el.style.fontSize = '';
-    let f = parseFloat(getComputedStyle(el).fontSize);
-    while (el.scrollWidth > el.clientWidth + 1 && f > 20) { f -= 1; el.style.fontSize = f + 'px'; }
+    let f = parseFloat(getComputedStyle(el).fontSize); const sw = el.scrollWidth, cw = el.clientWidth;
+    if (sw <= cw + 1) return; // fits: one layout read, no loop
+    f = Math.max(20, Math.floor(f * cw / sw)); el.style.fontSize = f + 'px'; // one proportional jump…
+    for (let i = 0; i < 4 && f > 20 && el.scrollWidth > el.clientWidth + 1; i++) { f -= 1; el.style.fontSize = f + 'px'; } // …then at most 4 nudges
   });
 }
 function renderInner() {
@@ -821,12 +827,33 @@ function bindBackupStores() {
 }
 function onDataSaved() { queueSnap(); scheduleFileWrite(); }
 
+// ---- startup (v7): paint first from localStorage; everything else after first paint ----
 render();
 window.addEventListener('resize', fitBig);
 if (document.fonts) { document.fonts.ready.then(fitBig); document.fonts.addEventListener && document.fonts.addEventListener('loadingdone', fitBig); }
-checkRecovery();
-if (FSA) kvGet('fileHandle').then(h => initFileBackup(h)).catch(() => {});
-if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+const afterPaint = (fn, idle) => requestAnimationFrame(() => setTimeout(() => (idle && window.requestIdleCallback) ? requestIdleCallback(fn, { timeout: 1500 }) : fn(), 0));
+// The recovery offer only matters when storage is empty (then it runs right after paint); otherwise snapshots load when idle.
+// It runs on snapChain so a save made before it finishes still compares against the newest snapshot.
+afterPaint(() => { snapChain = snapChain.then(checkRecovery).catch(() => {}); }, !freshStart);
+afterPaint(() => { if (FSA) kvGet('fileHandle').then(h => initFileBackup(h)).catch(() => {}); askPersist(); }, true);
+// ---- updates: a new version waits until you tap the toast (never swaps mid-session) ----
+let swReg = null, userUpdate = false;
+function showUpdate() { $('#updToast').hidden = false; }
+function applyUpdate() {
+  userUpdate = true; const b = $('#updToast'); b.disabled = true; b.textContent = 'Updating…';
+  if (swReg && swReg.waiting) { swReg.waiting.postMessage({ type: 'skip-waiting' }); setTimeout(() => location.reload(), 3000); } // controllerchange normally reloads first
+  else location.reload(); // only index.html changed: the fresh copy is already cached
+}
+$('#updToast').onclick = applyUpdate;
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (userUpdate && !reloading) { reloading = true; location.reload(); } });
+  navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'index-updated') showUpdate(); });
+  afterPaint(() => navigator.serviceWorker.register('sw.js').then(reg => {
+    swReg = reg; if (reg.waiting && navigator.serviceWorker.controller) showUpdate();
+    reg.addEventListener('updatefound', () => { const w = reg.installing; if (w) w.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) setTimeout(() => { if (reg.waiting) showUpdate(); }, 400); }); });
+  }).catch(() => {}), true);
+}
 </script>
 </body>
 </html>
