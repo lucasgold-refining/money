@@ -3,40 +3,51 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#14213d">
+<meta name="theme-color" content="#5B2A4E">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Emz">
-<title>Emz Tracker</title>
+<meta name="apple-mobile-web-app-title" content="Ledger">
+<title>Ledger</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preload" href="fonts/nunito-400-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/playfair-display-600-700.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-:root{--navy:#14213d;--gold:#f5c442;--bg:#f4f6fa;--card:#fff;--text:#1d2433;--muted:#667085;--red:#c62828;--redbg:#fdecea;--green:#1b7f3b;--greenbg:#e8f5e9;--line:#e3e7ef;--amber:#b54708;--amberbg:#fff4e5}
+/* v6 fonts: self-hosted OFL fonts (see fonts/OFL-*.txt). Playfair has no ₱ glyph, so ₱ falls back to Nunito. */
+@font-face{font-family:'Nunito';src:url('fonts/nunito-400-700.woff2') format('woff2');font-weight:400 700;font-style:normal;font-display:swap}
+@font-face{font-family:'Playfair Display';src:url('fonts/playfair-display-600-700.woff2') format('woff2');font-weight:600 700;font-style:normal;font-display:swap}
+/* v6 palette: plum + blush + rose gold (all text pairs checked for WCAG AA ≥ 4.5:1) */
+:root{--plum:#5B2A4E;--rose:#D4A5A5;--rosedeep:#C9897B;--bg:#FFF5F7;--card:#fff;--text:#3A1F33;--muted:#7A5468;--red:#B3364A;--redbg:#FDECEF;--green:#1b7f3b;--greenbg:#e8f5e9;--line:#F1DDE4;--amber:#8C3A5A;--amberbg:#FBE3EC;--soft:#F8E6EC;--label:#4A2F42;--xfer:#6A3FA0;--input:#E3C6D1;--shadow:rgba(91,42,78,.10)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;background:var(--bg);color:var(--text);font:17px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-header{background:var(--navy);color:#fff;padding:calc(env(safe-area-inset-top) + 8px) 14px 8px 16px;position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:62px}
+html,body{margin:0;background:var(--bg);color:var(--text);font:17px/1.4 "Nunito",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+button,input,select,textarea{font-family:inherit}
+.serif,header h1,.card h2,.modal h2,h3,.lbl,.big,.mid{font-family:"Playfair Display","Nunito",Georgia,serif}
+.big,.mid,.amtc,.acct b,.trio b,.sumgrid b,.loan .nums b,.dline b{font-variant-numeric:lining-nums tabular-nums}
+.btn.sm{display:inline-block;width:auto;min-height:44px;padding:8px 12px;margin:0;font-size:14px}
+header{background:var(--plum);color:#fff;padding:calc(env(safe-area-inset-top) + 8px) 14px 8px 16px;position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:62px}
 header h1{margin:0;font-size:20px;font-weight:700}
-header h1 span{color:var(--gold)}
+header h1{font-size:26px;font-weight:700;letter-spacing:.6px;display:flex;align-items:baseline;gap:8px}
+header h1 .peso{color:var(--rose);font-family:'Nunito',sans-serif;font-weight:700;font-size:22px}
 main{padding:14px 14px calc(96px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
 nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:5}
 nav button{flex:1;min-width:0;border:0;background:none;padding:10px 2px 12px;font-size:12px;white-space:nowrap;color:var(--muted);min-height:64px;display:flex;flex-direction:column;align-items:center;gap:2px}
 nav button .ic{font-size:22px;line-height:1}
-nav button.on{color:var(--navy);font-weight:700}
-.card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+nav button.on{color:var(--plum);font-weight:700}
+.card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px var(--shadow)}
 .card h2{margin:0 0 8px;font-size:18px}
 .lbl{font-size:14px;color:var(--muted);font-weight:600}
 .big{font-size:32px;font-weight:800;letter-spacing:-.5px}
 .mid{font-size:22px;font-weight:800}
-.hero{text-align:center;border-left:5px solid var(--gold)}
+.hero{text-align:center;border-left:5px solid var(--rosedeep)}
 .hero .big{font-size:38px}
-.acct{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;border:0;background:var(--card);border-radius:14px;padding:16px 14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);font-size:17px;color:var(--text);text-align:left;min-height:64px}
+.acct{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;border:0;background:var(--card);border-radius:14px;padding:16px 14px;margin-bottom:10px;box-shadow:0 1px 3px var(--shadow);font-size:17px;color:var(--text);text-align:left;min-height:64px}
 .acct b{font-size:20px;white-space:nowrap}
-.acctbox{background:var(--card);border-radius:14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}
+.acctbox{background:var(--card);border-radius:14px;margin-bottom:10px;box-shadow:0 1px 3px var(--shadow);overflow:hidden}
 .acctbox > .acct{background:none;box-shadow:none;margin:0;border-radius:0;cursor:pointer}
 .acct .chev{flex:none;width:40px;min-height:46px;border:0;background:none;color:var(--muted);font-size:22px;display:inline-flex;align-items:center;justify-content:center;padding:0;transition:transform .15s}
-.acct .chev[aria-expanded=true]{transform:rotate(180deg);color:var(--navy)}
+.acct .chev[aria-expanded=true]{transform:rotate(180deg);color:var(--plum)}
 .accpanel{border-top:1px solid var(--line);padding:4px 14px 12px}
 .accpanel .item{padding:10px 0}
 .accpanel .pbtns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
@@ -44,36 +55,36 @@ nav button.on{color:var(--navy);font-weight:700}
 .neg{color:var(--red)}
 .muted{color:var(--muted);font-size:14px}
 .warn{background:var(--amberbg);color:var(--amber);border-radius:12px;padding:12px 14px;font-weight:600;margin-bottom:12px;font-size:15px;border:0;width:100%;text-align:left;display:block}
-label{display:block;font-size:14px;font-weight:600;margin:12px 0 4px;color:#344054}
-input,select,textarea{width:100%;font-size:17px;padding:12px;border:1px solid #cdd3df;border-radius:10px;background:#fff;min-height:50px;color:var(--text);font-family:inherit}
+label{display:block;font-size:14px;font-weight:600;margin:12px 0 4px;color:var(--label)}
+input,select,textarea{width:100%;font-size:17px;padding:12px;border:1px solid var(--input);border-radius:10px;background:#fff;min-height:50px;color:var(--text);font-family:inherit}
 textarea{min-height:140px;font-size:13px;font-family:ui-monospace,Menlo,monospace}
 .amt{font-size:26px;font-weight:800}
-.btn{display:block;width:100%;border:0;border-radius:12px;padding:14px;font-size:17px;font-weight:700;min-height:56px;margin-top:14px;background:var(--navy);color:#fff}
-.btn.gold{background:var(--gold);color:var(--navy)}
-.btn.light{background:#e8ecf4;color:var(--navy)}
+.btn{display:block;width:100%;border:0;border-radius:12px;padding:14px;font-size:17px;font-weight:700;min-height:56px;margin-top:14px;background:var(--plum);color:#fff}
+.btn.gold{background:var(--rose);color:var(--plum)}
+.btn.light{background:var(--soft);color:var(--plum)}
 .btn.danger{background:var(--redbg);color:var(--red)}
 .btn.green{background:var(--green);color:#fff}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .row2 .btn{margin-top:10px}
-.seg{display:flex;background:#e8ecf4;border-radius:12px;padding:4px;gap:4px}
+.seg{display:flex;background:var(--soft);border-radius:12px;padding:4px;gap:4px}
 .seg button{flex:1;border:0;border-radius:9px;padding:10px 4px;font-size:15px;font-weight:700;background:none;color:var(--muted);min-height:50px}
-.seg button.on{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.1)}
-.seg button.on.in{color:var(--green)}.seg button.on.out{color:var(--red)}.seg button.on.transfer{color:#3538cd}
+.seg button.on{background:#fff;box-shadow:0 1px 2px rgba(91,42,78,.14)}
+.seg button.on.in{color:var(--green)}.seg button.on.out{color:var(--red)}.seg button.on.transfer{color:var(--xfer)}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{border:2px solid #cdd3df;background:#fff;border-radius:12px;min-height:50px;padding:8px 14px;font-size:16px;font-weight:700;color:var(--text)}
-.chip.on{border-color:var(--navy);background:var(--navy);color:#fff}
+.chip{border:2px solid var(--input);background:#fff;border-radius:12px;min-height:50px;padding:8px 14px;font-size:16px;font-weight:700;color:var(--text)}
+.chip.on{border-color:var(--plum);background:var(--plum);color:#fff}
 .item{display:flex;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
 .item:last-child{border-bottom:0}
 .item .body{flex:1;min-width:0}
 .item .body .t{font-weight:600}
 .item .amtc{font-weight:800;white-space:nowrap;text-align:right}
 .item .acts{display:flex;gap:6px}
-.item .acts button{border:0;background:#e8ecf4;border-radius:10px;min-width:44px;min-height:44px;font-size:17px}
+.item .acts button{border:0;background:var(--soft);border-radius:10px;min-width:44px;min-height:44px;font-size:17px}
 .item .acts button.del{background:var(--redbg)}
-.plus{color:var(--green)}.minus{color:var(--red)}.xfer{color:#3538cd}
-.loan{width:100%;border:0;background:var(--card);border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);text-align:left;color:var(--text);font-size:15px;display:block}
+.plus{color:var(--green)}.minus{color:var(--red)}.xfer{color:var(--xfer)}
+.loan{width:100%;border:0;background:var(--card);border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 1px 3px var(--shadow);text-align:left;color:var(--text);font-size:15px;display:block}
 .loan.paid{border-left:5px solid var(--green);opacity:.85}
-.loan.open{border-left:5px solid var(--navy)}
+.loan.open{border-left:5px solid var(--plum)}
 .loan .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .loan .who{font-size:18px;font-weight:700}
 .loan .nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
@@ -81,31 +92,31 @@ textarea{min-height:140px;font-size:13px;font-family:ui-monospace,Menlo,monospac
 .loan .nums small{display:block;color:var(--muted);font-size:12px}
 .loan .nums b{font-size:15px}
 .badge{font-size:13px;padding:4px 10px;border-radius:99px;font-weight:800;white-space:nowrap}
-.badge.Open{background:#e8ecf4;color:var(--navy)}
+.badge.Open{background:var(--soft);color:var(--plum)}
 .badge.Paid{background:var(--greenbg);color:var(--green)}
 .setacct{border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:10px}
 .setacct .r{display:grid;grid-template-columns:1fr 120px 48px;gap:6px;align-items:end}
 .setacct label{margin-top:0;font-size:12px}
 .iconbtn{border:0;background:var(--redbg);color:var(--red);border-radius:10px;min-height:50px;font-size:18px}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:#111;color:#fff;padding:12px 18px;border-radius:12px;font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:40;max-width:90%;text-align:center}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--text);color:#fff;padding:12px 18px;border-radius:12px;font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:40;max-width:90%;text-align:center}
 .toast.show{opacity:.92}
 .empty{text-align:center;color:var(--muted);padding:20px 10px}
 .hidden{display:none!important}
-.modal{position:fixed;inset:0;background:rgba(10,16,30,.55);z-index:30;display:flex;align-items:flex-end;justify-content:center}
+.modal{position:fixed;inset:0;background:rgba(45,15,38,.55);z-index:30;display:flex;align-items:flex-end;justify-content:center}
 .modal .sheet{background:#fff;border-radius:18px 18px 0 0;width:100%;max-width:640px;max-height:92vh;overflow:auto;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
 .modal .mh{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .modal h2{margin:0;font-size:20px}
-.modal .x{border:0;background:#e8ecf4;border-radius:10px;min-width:44px;min-height:44px;font-size:18px}
+.modal .x{border:0;background:var(--soft);border-radius:10px;min-width:44px;min-height:44px;font-size:18px}
 .sumgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
 .sumgrid div{background:var(--bg);border-radius:10px;padding:8px}
 .sumgrid small{display:block;color:var(--muted);font-size:12px}
 .sumgrid b{font-size:16px}
 label .dh{font-weight:500;color:var(--muted)}
-.eye{border:0;background:#e8ecf4;color:var(--navy);border-radius:12px;min-width:46px;min-height:46px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0 10px;flex:none;vertical-align:middle}
+.eye{border:0;background:var(--soft);color:var(--plum);border-radius:12px;min-width:46px;min-height:46px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0 10px;flex:none;vertical-align:middle}
 .eye svg{width:24px;height:24px}
-.eye[aria-pressed=true]{background:var(--navy);color:var(--gold)}
+.eye[aria-pressed=true]{background:var(--plum);color:var(--rose)}
 header .eye{background:rgba(255,255,255,.12);color:#fff}
-header .eye[aria-pressed=true]{background:var(--gold);color:var(--navy)}
+header .eye[aria-pressed=true]{background:var(--rose);color:var(--plum)}
 .pv.masked{letter-spacing:1px;color:var(--muted)!important}
 .eyecard{display:flex;align-items:center;gap:10px}
 .eyecard .grow{flex:1;min-width:0}
@@ -115,11 +126,11 @@ header .eye[aria-pressed=true]{background:var(--gold);color:var(--navy)}
 .acct .amtwrap{display:flex;align-items:center;gap:8px;flex:none}
 .dcard .big{font-size:34px}
 .chip.none{border-style:dashed;font-weight:600}
-h3{font-size:15px;margin:18px 0 4px;color:#344054}
+h3{font-size:15px;margin:18px 0 4px;color:var(--label)}
 </style>
 </head>
 <body>
-<header><h1>₱ Emz <span>Tracker</span></h1><span id="eyeAllWrap"></span></header>
+<header><h1 id="appTitle"><span class="peso">₱</span>Ledger</h1><span id="eyeAllWrap"></span></header>
 <main id="app"></main>
 <nav>
   <button data-v="home" class="on"><span class="ic">🏠</span>Home</button>
@@ -131,7 +142,7 @@ h3{font-size:15px;margin:18px 0 4px;color:#344054}
 <div class="toast" id="toast"></div>
 <script>
 'use strict';
-const APP_V = 5;
+const APP_V = 6;
 const KEY = 'emz-money-v1';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function defaultState() {
@@ -151,13 +162,16 @@ function defaultState() {
 }
 function valid(d) { return d && Array.isArray(d.accounts) && Array.isArray(d.tx) && Array.isArray(d.loans) && Array.isArray(d.repayments); }
 let S;
+let freshStart = false; // true when localStorage had no data on this open (new install or cleared)
 function load() {
   try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) { S = null; }
-  if (!valid(S)) { S = defaultState(); save(); }
+  if (!valid(S)) { S = defaultState(); freshStart = true; } // not written until the first real change, so a recovery offer survives “Not now”
 }
-function save() { localStorage.setItem(KEY, JSON.stringify(S)); }
+// Every data change goes through save(): localStorage, then an on-phone snapshot (IndexedDB) and the phone backup file.
+function save() { localStorage.setItem(KEY, JSON.stringify(S)); freshStart = false; if (typeof onDataSaved === 'function') onDataSaved(); }
 load();
-if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+let storagePersisted = null;
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(v => { storagePersisted = v; if (typeof view !== 'undefined' && view === 'set') render(); }).catch(() => {});
 
 // ---------- helpers ----------
 const $ = s => document.querySelector(s);
@@ -257,8 +271,9 @@ function renderInner() {
 function homeHTML() {
   const lt = loanTotals(), tb = totalBalance(), ds = daysSinceBackup();
   let h = '';
-  if (hasData() && (ds === null || ds >= 7))
-    h += `<button class="warn" id="backupNag" onclick="go('set')">💾 ${ds === null ? 'You haven’t backed up yet.' : `Last backup was ${ds} days ago.`} Tap to back up.</button>`;
+  if (fileNeedsPerm()) h += `<button class="warn" id="fileBanner" onclick="grantFilePerm()">📁 Tap to keep saving backups to your phone</button>`;
+  if (hasData() && (ds === null || ds >= 14))
+    h += `<button class="warn" id="backupNag" onclick="go('set')">💾 Auto backups stay on this phone only. ${ds === null ? 'Share a copy off the phone' : `Last copy off the phone was ${ds} days ago — share a new one`} (e.g. Messenger or email). Tap to back up.</button>`;
   // v5 order: Net worth (hero) · Total balance · accounts · Owed to me
   h += `<div class="card hero" id="netCard"><div class="eyecard"><div class="grow"><div class="lbl">Net worth <span class="muted">(balance + owed)</span></div><div class="big" id="netWorth">${amt(tb + lt.out, 'net', tb + lt.out < 0 ? 'neg' : '')}</div></div>${eyeBtn('net', 'net worth')}</div></div>`;
   h += `<div class="card" id="totalCard"><div class="eyecard"><div class="grow"><div class="lbl">Total balance</div><div class="mid" id="totalBal">${amt(tb, 'total', tb < 0 ? 'neg' : '')}</div></div>${eyeBtn('total', 'total balance')}</div></div>`;
@@ -557,12 +572,15 @@ function setHTML() {
       <div><label>Opening ₱</label><input class="aopen" ${hid('a:' + a.id) ? 'type="password" ' : ''}inputmode="decimal" value="${(cents(a.opening) / 100).toFixed(2)}"></div>
       <button class="iconbtn adel" aria-label="Delete account">🗑️</button></div></div>`;
   h += `</div><button class="btn light" id="addAcct">＋ Add account</button></div>
-    <div class="card"><h2>Backup</h2><div class="muted" id="lastBackup">${S.lastBackup ? `Last backup: ${fmtDate(new Date(S.lastBackup - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10))} (${ds === 0 ? 'today' : ds + ' day' + (ds === 1 ? '' : 's') + ' ago'})` : 'No backup yet'}</div>
-    <div class="muted" style="margin-top:4px">Your data stays only on this phone. Copy or share a backup to yourself (e.g. Messenger, Notes, email) now and then.</div>
+    <div class="card"><h2>Backup</h2><div class="muted" id="lastBackup">${S.lastBackup ? `Last copy off the phone: ${fmtDate(new Date(S.lastBackup - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10))} (${ds === 0 ? 'today' : ds + ' day' + (ds === 1 ? '' : 's') + ' ago'})` : 'No copy off the phone yet'}</div>
+    <div class="muted" style="margin-top:4px">Auto backups below are kept on this phone only. Copy or share a backup to yourself (e.g. Messenger, email) now and then.</div>
+    <div class="muted" id="storageStatus" style="margin-top:4px">${storagePersisted === true ? '🔒 Storage: persistent — Chrome won’t clear it to free space' : storagePersisted === false ? '⚠️ Storage: not persistent — Chrome may clear it if the phone runs low on space' : 'Storage: checking…'}</div>
     <div class="row2"><button class="btn" id="copyBk">📋 Copy backup</button><button class="btn" id="shareBk">📤 Share backup</button></div>
-    <button class="btn light" id="restoreBk">♻️ Restore from backup</button>
+    <button class="btn light" id="restoreBk">♻️ Restore from backup (paste)</button>
     <button class="btn light" id="copyCsv">📄 Copy as CSV (spreadsheet)</button></div>
-    <div class="muted" style="text-align:center">Emz Tracker v${APP_V}</div>`;
+    ${fileCardHTML()}
+    ${snapsCardHTML()}
+    <div class="muted" style="text-align:center">Ledger v${APP_V}</div>`;
   return h;
 }
 function bindSettings() {
@@ -586,12 +604,13 @@ function bindSettings() {
   $('#shareBk').onclick = async () => {
     const text = backupText();
     if (navigator.share) {
-      try { await navigator.share({ title: 'Emz Tracker backup ' + fmtDate(todayISO()), text }); markBackup(); toast('Backup shared'); }
+      try { await navigator.share({ title: 'Ledger backup ' + fmtDate(todayISO()), text }); markBackup(); toast('Backup shared'); }
       catch (e) { if (e && e.name !== 'AbortError') { if (await copyText(text)) { markBackup(); toast('Couldn’t share — copied instead'); } } }
     } else if (await copyText(text)) { markBackup(); toast('Sharing not available — backup copied instead'); }
   };
   $('#restoreBk').onclick = restoreForm;
   $('#copyCsv').onclick = async () => { if (await copyText(csvText())) toast('CSV copied — paste into a spreadsheet'); };
+  bindBackupStores();
 }
 function markBackup() { S.lastBackup = Date.now(); save(); if (view === 'set') render(); }
 function backupText() { return JSON.stringify({ app: 'emz-tracker', exported: new Date().toISOString(), data: S }); }
@@ -618,9 +637,9 @@ function restoreForm() {
     <button class="btn" id="doRestore">Restore</button><button class="btn light" onclick="closeModal()">Cancel</button>`);
   sh.querySelector('#doRestore').onclick = () => {
     const d = parseBackup(sh.querySelector('#restoreTxt').value);
-    if (!d) { toast('That doesn’t look like an Emz Tracker backup'); return; }
+    if (!d) { toast('That doesn’t look like a Ledger backup'); return; }
     if (!confirm(`Replace all current data with this backup?\n${d.accounts.length} accounts · ${d.tx.length} transactions · ${d.loans.length} loans · ${d.repayments.length} repayments`)) return;
-    S = Object.assign(defaultState(), d); S.lastBackup = Date.now(); save(); closeModal(); go('home'); toast('Backup restored');
+    applyRestore(d, 'Backup restored');
   };
 }
 function csvText() {
@@ -646,8 +665,167 @@ function hintDates() {
 document.addEventListener('input', e => { if (e.target.type === 'date') hintDates(); });
 document.addEventListener('change', e => { if (e.target.type === 'date') hintDates(); });
 new MutationObserver(hintDates).observe(document.body, { childList: true, subtree: true });
+// ================= on-phone auto backups (IndexedDB) + phone backup file (File System Access) =================
+const SNAP_MAX = 20, FILE_META_KEY = 'emz-money-file-v1';
+let idbP = null;
+function idb() {
+  if (!idbP) idbP = new Promise((res, rej) => {
+    if (!window.indexedDB) return rej(new Error('no indexedDB'));
+    const r = indexedDB.open('emz-money-backups', 1);
+    r.onupgradeneeded = () => { const db = r.result; if (!db.objectStoreNames.contains('snaps')) db.createObjectStore('snaps', { keyPath: 'ts' }); if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv'); };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  return idbP;
+}
+function idbDo(store, mode, fn) {
+  return idb().then(db => new Promise((res, rej) => { const t = db.transaction(store, mode), st = t.objectStore(store); let out; const q = fn(st); if (q) q.onsuccess = () => { out = q.result; }; t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); }));
+}
+const kvGet = k => idbDo('kv', 'readonly', st => st.get(k));
+const kvSet = (k, v) => idbDo('kv', 'readwrite', st => st.put(v, k));
+const kvDel = k => idbDo('kv', 'readwrite', st => st.delete(k));
+let SNAPS = []; // newest first: {ts, reason, accounts, loans, totalC, data}
+let snapChain = Promise.resolve(), lastSnapCmp = null, lastSnapTs = 0;
+const cmpOf = json => { try { const d = JSON.parse(json); delete d.lastBackup; return JSON.stringify(d); } catch (e) { return json; } };
+function summaryOf(d) { const keep = S; S = d; try { return { accounts: d.accounts.length, loans: d.loans.length, totalC: S.accounts.reduce((x, a) => x + balanceC(a.id), 0) }; } finally { S = keep; } }
+// Queue a snapshot of the current data (skipped when nothing changed except lastBackup, unless force).
+function queueSnap(reason, force) {
+  const json = JSON.stringify(S), sum = summaryOf(JSON.parse(json));
+  snapChain = snapChain.then(async () => {
+    const cmp = cmpOf(json); if (!force && cmp === lastSnapCmp) return;
+    const ts = Math.max(Date.now(), lastSnapTs + 1); lastSnapTs = ts;
+    await idbDo('snaps', 'readwrite', st => st.put(Object.assign({ ts, reason: reason || 'Change', data: json }, sum)));
+    const keys = await idbDo('snaps', 'readonly', st => st.getAllKeys());
+    if (keys.length > SNAP_MAX) { const old = keys.sort((a, b) => a - b).slice(0, keys.length - SNAP_MAX); await idbDo('snaps', 'readwrite', st => { old.forEach(k => st.delete(k)); }); }
+    lastSnapCmp = cmp; await loadSnaps();
+  }).catch(e => { console.warn('auto backup failed', e); });
+  return snapChain;
+}
+async function loadSnaps() {
+  try { SNAPS = ((await idbDo('snaps', 'readonly', st => st.getAll())) || []).sort((a, b) => b.ts - a.ts); } catch (e) { SNAPS = []; }
+  if (view === 'set') render();
+  return SNAPS;
+}
+const fmtDT = ts => { const d = new Date(ts); return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+const pad2 = n => String(n).padStart(2, '0');
+const snapSummary = s => `${s.accounts} account${s.accounts === 1 ? '' : 's'} · ${s.loans} loan${s.loans === 1 ? '' : 's'} · total ${amtT(s.totalC / 100, 'total')}`;
+function snapsCardHTML() {
+  let h = `<div class="card" id="snapCard"><h2>Auto backups <span class="muted">(on this phone)</span></h2><div class="muted">Saved automatically after every change · last ${SNAP_MAX} kept.</div><div id="snapList">`;
+  if (!SNAPS.length) h += '<div class="empty">No auto backups yet — they appear after your first change.</div>';
+  for (const s of SNAPS) h += `<div class="item snap" data-ts="${s.ts}"><div class="body"><div class="t">${fmtDT(s.ts)}</div><div class="muted">${esc(snapSummary(s))}${s.reason && s.reason !== 'Change' ? ' · ' + esc(s.reason) : ''}</div></div><div class="acts"><button class="btn light sm snapRestore" onclick="restoreSnap(${s.ts})">Restore this</button></div></div>`;
+  return h + '</div></div>';
+}
+async function restoreSnap(ts) {
+  const s = SNAPS.find(x => x.ts === ts); if (!s) return;
+  const d = parseBackup(s.data); if (!d) { toast('That auto backup is damaged'); return; }
+  if (!confirm(`Restore the auto backup from ${fmtDT(ts)}?\n${snapSummary(s)}\nYour current data is saved as an auto backup first, so you can undo this.`)) return;
+  await applyRestore(d, 'Auto backup restored', true);
+}
+// All restores go through here: snapshot current data first (undo), then replace.
+async function applyRestore(d, msg, keepLastBackup) {
+  await queueSnap('Before restore', true);
+  const lb = S.lastBackup;
+  S = Object.assign(defaultState(), d); S.lastBackup = keepLastBackup ? (d.lastBackup || lb || null) : Date.now();
+  save(); await snapChain; closeModal(); go('home'); toast(msg);
+}
+// Startup: storage empty but snapshots exist → offer the latest.
+async function checkRecovery() {
+  await loadSnaps();
+  const snaps = SNAPS; lastSnapCmp = snaps[0] ? cmpOf(snaps[0].data) : null; lastSnapTs = snaps[0] ? snaps[0].ts : 0;
+  if (!freshStart || !snaps.length) return;
+  const s = snaps[0];
+  const sh = openModal(mhead('Restore your data?') + `<div id="recoverModal"><p>This app’s storage is empty, but an auto backup was found on this phone:</p>
+    <div class="card" style="background:var(--soft)"><b>${fmtDT(s.ts)}</b><div class="muted">${esc(snapSummary(s))}</div></div>
+    <button class="btn" id="recoverYes">Restore it</button><button class="btn light" id="recoverNo">Not now</button></div>`);
+  sh.querySelector('#recoverNo').onclick = closeModal;
+  sh.querySelector('#recoverYes').onclick = async () => { const d = parseBackup(s.data); if (d) { S = Object.assign(defaultState(), d); save(); await snapChain; closeModal(); go('home'); toast('Data restored from auto backup'); } };
+}
+
+// ---- phone backup file ----
+const FSA = typeof window.showSaveFilePicker === 'function';
+let fileHandle = null, filePerm = null; // filePerm: 'granted' | 'prompt' | 'denied' | null
+let FM; try { FM = JSON.parse(localStorage.getItem(FILE_META_KEY)) || {}; } catch (e) { FM = {}; }
+const saveFM = () => localStorage.setItem(FILE_META_KEY, JSON.stringify(FM));
+const fileNeedsPerm = () => !!fileHandle && filePerm !== 'granted' && FM.status !== 'missing';
+let fileTimer = null;
+function scheduleFileWrite() { if (!fileHandle) return; clearTimeout(fileTimer); fileTimer = setTimeout(() => writeFile(), 1000); }
+async function writeFile() {
+  if (!fileHandle) return false;
+  try {
+    filePerm = fileHandle.queryPermission ? await fileHandle.queryPermission({ mode: 'readwrite' }) : 'granted';
+    if (filePerm !== 'granted') { FM.status = 'perm'; saveFM(); if (view === 'home' || view === 'set') render(); return false; }
+    const w = await fileHandle.createWritable(); await w.write(backupText()); await w.close();
+    FM.name = fileHandle.name || FM.name; FM.lastSaved = Date.now(); FM.status = 'ok'; FM.error = ''; saveFM();
+  } catch (e) {
+    const missing = e && (e.name === 'NotFoundError' || e.name === 'NotReadableError' || e.name === 'InvalidStateError');
+    FM.status = missing ? 'missing' : (e && e.name === 'NotAllowedError' ? 'perm' : 'error'); FM.error = e && e.message ? String(e.message) : String(e); saveFM();
+    if (e && e.name === 'NotAllowedError') filePerm = 'prompt';
+  }
+  if (view === 'set' || view === 'home') render();
+  return FM.status === 'ok';
+}
+async function setupFile() {
+  try {
+    const h = await window.showSaveFilePicker({ suggestedName: 'ledger-backup.json', types: [{ description: 'Ledger backup', accept: { 'application/json': ['.json'] } }] });
+    fileHandle = h; filePerm = 'granted'; FM = { name: h.name || 'ledger-backup.json', status: 'ok', lastSaved: null }; saveFM();
+    try { await kvSet('fileHandle', h); } catch (e) { console.warn('could not remember file handle', e); }
+    if (await writeFile()) toast('Phone backup file set up ✓');
+  } catch (e) { if (!e || e.name !== 'AbortError') toast('Couldn’t set up the backup file'); }
+}
+async function grantFilePerm() {
+  if (!fileHandle) return;
+  try { filePerm = await fileHandle.requestPermission({ mode: 'readwrite' }); } catch (e) { filePerm = 'denied'; }
+  if (filePerm === 'granted') { if (await writeFile()) toast('Saving backups to your phone ✓'); } else { render(); toast('Permission not given — backups to the phone file are paused'); }
+}
+async function forgetFile() { fileHandle = null; filePerm = null; FM = {}; saveFM(); try { await kvDel('fileHandle'); } catch (e) {} render(); }
+async function initFileBackup(h) { // called on startup with the remembered handle (or by tests with a mock)
+  fileHandle = h || null; if (!fileHandle) { filePerm = null; return; }
+  try { filePerm = fileHandle.queryPermission ? await fileHandle.queryPermission({ mode: 'readwrite' }) : 'granted'; } catch (e) { filePerm = 'prompt'; }
+  if (filePerm === 'granted' && FM.status !== 'ok') await writeFile();
+  render();
+}
+async function restoreFromFile() {
+  let text;
+  try {
+    if (typeof window.showOpenFilePicker === 'function') { const [h] = await window.showOpenFilePicker({ types: [{ description: 'Ledger backup', accept: { 'application/json': ['.json'] } }] }); text = await (await h.getFile()).text(); }
+    else { text = await new Promise((res, rej) => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'application/json,.json'; i.onchange = () => i.files[0] ? i.files[0].text().then(res, rej) : rej(new Error('none')); i.click(); }); }
+  } catch (e) { if (!e || e.name !== 'AbortError') toast('Couldn’t read that file'); return; }
+  const d = parseBackup(text); if (!d) { toast('That file isn’t a Ledger backup'); return; }
+  if (!confirm(`Replace all current data with this backup file?\n${d.accounts.length} accounts · ${d.tx.length} transactions · ${d.loans.length} loans · ${d.repayments.length} repayments`)) return;
+  await applyRestore(d, 'Backup file restored', true);
+}
+function downloadBackup() {
+  const blob = new Blob([backupText()], { type: 'application/json' }), a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = `ledger-backup-${todayISO()}.json`; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); markBackup(); toast('Backup file saved to Downloads');
+}
+function fileCardHTML() {
+  let h = `<div class="card" id="fileCard"><h2>Phone backup file</h2>`;
+  if (!FSA) return h + `<div class="muted">Saves a backup file (.json) you can keep in Downloads or send to yourself.</div><button class="btn" id="downloadBk">💾 Save backup file</button><button class="btn light" id="restoreFile">📂 Restore from phone file</button></div>`;
+  if (!fileHandle) h += `<div class="muted" id="fileStatus">Pick a place once (e.g. Documents or Downloads) and the app keeps an up-to-date backup file there after every change.</div><button class="btn" id="setupFile">📁 Set up phone backup file</button>`;
+  else {
+    const st = FM.status === 'missing' ? '⚠️ File was moved or deleted — set it up again' : fileNeedsPerm() || FM.status === 'perm' ? '⏸️ Needs permission — tap “Allow saving”' : FM.status === 'error' ? '⚠️ Last save failed — ' + esc(FM.error || '') : '✓ Saving after every change';
+    h += `<div class="dline"><span>File</span><b id="fileName">${esc(FM.name || fileHandle.name || 'ledger-backup.json')}</b></div>
+      <div class="dline"><span>Last saved</span><b id="fileSaved">${FM.lastSaved ? fmtDT(FM.lastSaved) : '—'}</b></div>
+      <div class="muted" id="fileStatus" style="margin-top:6px">${st}</div>
+      ${FM.status === 'missing' ? '<button class="btn" id="setupFile">📁 Set up phone backup file again</button>' : fileNeedsPerm() ? '<button class="btn" id="allowFile">Allow saving</button>' : '<button class="btn light" id="saveFileNow">Save now</button>'}
+      <div class="row2"><button class="btn light" id="changeFile">Change file</button><button class="btn light" id="forgetFile">Stop</button></div>`;
+  }
+  return h + `<button class="btn light" id="restoreFile">📂 Restore from phone file</button></div>`;
+}
+function bindBackupStores() {
+  const on = (id, f) => { const e = document.getElementById(id); if (e) e.onclick = f; };
+  on('setupFile', setupFile); on('changeFile', setupFile); on('allowFile', grantFilePerm);
+  on('saveFileNow', async () => { if (await writeFile()) toast('Saved to phone file'); else if (FM.status === 'missing') toast('File was moved or deleted — set it up again'); });
+  on('forgetFile', () => { if (confirm('Stop saving backups to the phone file? (The file itself is not deleted.)')) forgetFile(); });
+  on('restoreFile', restoreFromFile); on('downloadBk', downloadBackup);
+}
+function onDataSaved() { queueSnap(); scheduleFileWrite(); }
+
 render();
 window.addEventListener('resize', fitBig);
+if (document.fonts) { document.fonts.ready.then(fitBig); document.fonts.addEventListener && document.fonts.addEventListener('loadingdone', fitBig); }
+checkRecovery();
+if (FSA) kvGet('fileHandle').then(h => initFileBackup(h)).catch(() => {});
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
