@@ -21,7 +21,7 @@ header h1{margin:0;font-size:20px;font-weight:700}
 header h1 span{color:var(--gold)}
 main{padding:14px 14px calc(96px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
 nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:5}
-nav button{flex:1;border:0;background:none;padding:10px 4px 12px;font-size:13px;color:var(--muted);min-height:64px;display:flex;flex-direction:column;align-items:center;gap:2px}
+nav button{flex:1;min-width:0;border:0;background:none;padding:10px 2px 12px;font-size:12px;white-space:nowrap;color:var(--muted);min-height:64px;display:flex;flex-direction:column;align-items:center;gap:2px}
 nav button .ic{font-size:22px;line-height:1}
 nav button.on{color:var(--navy);font-weight:700}
 .card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
@@ -36,7 +36,6 @@ nav button.on{color:var(--navy);font-weight:700}
 .acct .chev{color:var(--muted);font-size:20px}
 .neg{color:var(--red)}
 .muted{color:var(--muted);font-size:14px}
-.red{color:var(--red);font-weight:700}
 .warn{background:var(--amberbg);color:var(--amber);border-radius:12px;padding:12px 14px;font-weight:600;margin-bottom:12px;font-size:15px;border:0;width:100%;text-align:left;display:block}
 label{display:block;font-size:14px;font-weight:600;margin:12px 0 4px;color:#344054}
 input,select,textarea{width:100%;font-size:17px;padding:12px;border:1px solid #cdd3df;border-radius:10px;background:#fff;min-height:50px;color:var(--text);font-family:inherit}
@@ -66,7 +65,6 @@ textarea{min-height:140px;font-size:13px;font-family:ui-monospace,Menlo,monospac
 .item .acts button.del{background:var(--redbg)}
 .plus{color:var(--green)}.minus{color:var(--red)}.xfer{color:#3538cd}
 .loan{width:100%;border:0;background:var(--card);border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);text-align:left;color:var(--text);font-size:15px;display:block}
-.loan.overdue{border-left:5px solid var(--red)}
 .loan.paid{border-left:5px solid var(--green);opacity:.85}
 .loan.open{border-left:5px solid var(--navy)}
 .loan .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -77,7 +75,6 @@ textarea{min-height:140px;font-size:13px;font-family:ui-monospace,Menlo,monospac
 .loan .nums b{font-size:15px}
 .badge{font-size:13px;padding:4px 10px;border-radius:99px;font-weight:800;white-space:nowrap}
 .badge.Open{background:#e8ecf4;color:var(--navy)}
-.badge.Overdue{background:var(--redbg);color:var(--red)}
 .badge.Paid{background:var(--greenbg);color:var(--green)}
 .setacct{border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:10px}
 .setacct .r{display:grid;grid-template-columns:1fr 120px 48px;gap:6px;align-items:end}
@@ -108,6 +105,7 @@ header .eye[aria-pressed=true]{background:var(--gold);color:var(--navy)}
 .hero .eyecard .grow{text-align:center;padding-left:56px}
 .acct .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .acct .amtwrap{display:flex;align-items:center;gap:8px;flex:none}
+.dcard .big{font-size:34px}
 h3{font-size:15px;margin:18px 0 4px;color:#344054}
 </style>
 </head>
@@ -117,13 +115,14 @@ h3{font-size:15px;margin:18px 0 4px;color:#344054}
 <nav>
   <button data-v="home" class="on"><span class="ic">🏠</span>Home</button>
   <button data-v="add"><span class="ic">➕</span>Add</button>
+  <button data-v="dash"><span class="ic">📊</span>Dashboard</button>
   <button data-v="loans"><span class="ic">🤝</span>Loans</button>
   <button data-v="set"><span class="ic">⚙️</span>Settings</button>
 </nav>
 <div class="toast" id="toast"></div>
 <script>
 'use strict';
-const APP_V = 2;
+const APP_V = 3;
 const KEY = 'emz-money-v1';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function defaultState() {
@@ -136,7 +135,7 @@ function defaultState() {
       { id: 'cash', name: 'Cash on hand', type: 'cash', opening: 0 } // v2: new installs only; existing data is never changed
     ],
     tx: [],          // {id,type:'in'|'out'|'transfer',amount,account,to,date,note,created}
-    loans: [],       // {id,borrower,amount,account,date,due,note,created}
+    loans: [],       // {id,borrower,amount,account,date,note,created} (v3: due dates no longer used; any old 'due'/'dueDate' is kept but ignored)
     repayments: [],  // {id,loanId,amount,account,date,note,created}
     lastBackup: null
   };
@@ -171,7 +170,7 @@ const savePriv = () => localStorage.setItem(PKEY, JSON.stringify(P));
 const MASK = '₱ ••••••';
 const EYE_OPEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-7-11-7a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
-const privKeys = () => ['total', ...S.accounts.map(a => 'a:' + a.id), 'owed', 'net'];
+const privKeys = () => ['total', ...S.accounts.map(a => 'a:' + a.id), 'owed', 'net', 'd:bank', 'd:lent', 'd:cash', 'd:exp'];
 const hid = k => !!P.h[k];
 const allHidden = () => privKeys().every(hid);
 // An amount: shows ₱ •••••• when its card is hidden (cls = extra classes when shown, e.g. 'neg').
@@ -204,13 +203,13 @@ const repaysOf = id => S.repayments.filter(r => r.loanId === id);
 function loanInfo(l) {
   const repaidC = repaysOf(l.id).reduce((s, r) => s + cents(r.amount), 0);
   const outC = Math.max(0, cents(l.amount) - repaidC);
-  const status = outC === 0 ? 'Paid' : (l.due && l.due < todayISO() ? 'Overdue' : 'Open');
+  const status = outC === 0 ? 'Paid' : 'Open'; // v3: no overdue tracking
   return { lent: cents(l.amount) / 100, repaid: repaidC / 100, out: outC / 100, status };
 }
 function loanTotals() {
-  let outC = 0, open = 0, overdue = 0;
-  for (const l of S.loans) { const i = loanInfo(l); outC += cents(i.out); if (i.status !== 'Paid') open++; if (i.status === 'Overdue') overdue++; }
-  return { out: outC / 100, open, overdue };
+  let outC = 0, open = 0;
+  for (const l of S.loans) { const i = loanInfo(l); outC += cents(i.out); if (i.status !== 'Paid') open++; }
+  return { out: outC / 100, open };
 }
 function daysSinceBackup() { return S.lastBackup ? Math.floor((Date.now() - S.lastBackup) / 86400000) : null; }
 const hasData = () => S.tx.length || S.loans.length || S.repayments.length || S.accounts.some(a => cents(a.opening));
@@ -227,6 +226,7 @@ function render() {
   const app = $('#app'); drawEyeAll();
   if (view === 'home') app.innerHTML = homeHTML();
   else if (view === 'add') { app.innerHTML = '<div class="card" id="addCard"></div>'; txForm($('#addCard'), null); }
+  else if (view === 'dash') app.innerHTML = dashHTML();
   else if (view === 'loans') app.innerHTML = loansHTML();
   else if (view === 'set') { app.innerHTML = setHTML(); bindSettings(); }
 }
@@ -244,7 +244,7 @@ function homeHTML() {
   }
   h += `<div class="acct" role="button" tabindex="0" id="owedCard" onclick="go('loans')"><span class="grow" style="flex:1;min-width:0;display:flex;flex-direction:column">
     <span class="lbl">Owed to me</span><span class="mid" id="owedTotal">${amt(lt.out, 'owed')}</span>
-    <span class="muted" id="owedMeta">${lt.open} open loan${lt.open === 1 ? '' : 's'}${lt.overdue ? ` · <span class="red">${lt.overdue} overdue</span>` : ''}</span></span>${eyeBtn('owed', 'owed to me')}</div>`;
+    <span class="muted" id="owedMeta">${lt.open} open loan${lt.open === 1 ? '' : 's'}</span></span>${eyeBtn('owed', 'owed to me')}</div>`;
   h += `<div class="card" id="netCard"><div class="eyecard"><div class="grow"><div class="lbl">Net worth <span class="muted">(balance + owed)</span></div><div class="mid" id="netWorth">${amt(tb + lt.out, 'net', tb + lt.out < 0 ? 'neg' : '')}</div></div>${eyeBtn('net', 'net worth')}</div></div>`;
   h += `<div class="row2"><button class="btn" onclick="go('add')">➕ Add money</button><button class="btn gold" onclick="lendForm()">🤝 Lend money</button></div>`;
   return h;
@@ -354,22 +354,39 @@ function openAccount(id) {
   openModal(h);
 }
 
+// ---------- dashboard (four totals only) ----------
+const isCash = a => a.type === 'cash' || /cash/i.test(a.name || ''); // also catches a manually added "Cash on hand"
+function dashHTML() {
+  let bankC = 0, cashC = 0, expC = 0;
+  for (const a of S.accounts) { if (isCash(a)) cashC += balanceC(a.id); else bankC += balanceC(a.id); }
+  const m = todayISO().slice(0, 7);
+  for (const t of S.tx) if (t.type === 'out' && (t.date || '').slice(0, 7) === m) expC += cents(t.amount);
+  const lent = loanTotals();
+  const [y, mo] = m.split('-').map(Number);
+  const monthName = new Date(y, mo - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const card = (id, key, label, v, sub, cls) => `<div class="card dcard" id="${id}"><div class="eyecard"><div class="grow"><div class="lbl">${label}</div><div class="big" id="${id}Val">${amt(v, key, cls)}</div>${sub ? `<div class="muted">${sub}</div>` : ''}</div>${eyeBtn(key, label.toLowerCase())}</div></div>`;
+  return card('dBank', 'd:bank', 'Money in accounts', bankC / 100, `${S.accounts.filter(a => !isCash(a)).length} bank account${S.accounts.filter(a => !isCash(a)).length === 1 ? '' : 's'}`, bankC < 0 ? 'neg' : '')
+    + card('dLent', 'd:lent', 'Money lent', lent.out, `${lent.open} open loan${lent.open === 1 ? '' : 's'}`)
+    + card('dCash', 'd:cash', 'Cash on hand', cashC / 100, S.accounts.some(isCash) ? '' : 'No cash account yet — add one in Settings', cashC < 0 ? 'neg' : '')
+    + card('dExp', 'd:exp', 'Expenses this month', expC / 100, `${monthName} · money out only`, '');
+}
+
 // ---------- loans ----------
 function loansHTML() {
   const lt = loanTotals();
   let h = `<div class="card hero"><div class="lbl">Owed to me</div><div class="big" id="loansOwed">${amt(lt.out, 'owed')}</div>
-    <div class="muted">${lt.open} open${lt.overdue ? ` · <span class="red">${lt.overdue} overdue</span>` : ''}</div></div>
+    <div class="muted">${lt.open} open</div></div>
     <button class="btn gold" id="lendBtn" onclick="lendForm()" style="margin:0 0 14px">🤝 Lend money</button>`;
   if (!S.loans.length) return h + '<div class="empty">No loans yet.</div>';
-  const order = { Overdue: 0, Open: 1, Paid: 2 };
+  const order = { Open: 0, Paid: 1 };
   const list = S.loans.map(l => ({ l, i: loanInfo(l) })).sort((a, b) => order[a.i.status] - order[b.i.status] || byNewest(a.l, b.l));
   let paidHdr = false;
   for (const { l, i } of list) {
     if (i.status === 'Paid' && !paidHdr) { h += '<h3>Paid</h3>'; paidHdr = true; }
     h += `<button class="loan ${i.status.toLowerCase()}" data-loan="${l.id}" onclick="openLoan('${l.id}')">
       <div class="top"><span class="who">${esc(l.borrower)}</span><span class="badge ${i.status}">${i.status}</span></div>
-      <div class="muted">${fmtDate(l.date)}${l.due ? ' · due ' + fmtDate(l.due) : ''}</div>
-      <div class="nums"><div><small>Lent</small><b>${amt(i.lent, 'owed')}</b></div><div><small>Repaid</small><b>${amt(i.repaid, 'owed')}</b></div><div><small>Outstanding</small><b>${amt(i.out, 'owed', i.status === 'Overdue' ? 'neg' : '')}</b></div></div></button>`;
+      <div class="muted lgiven">Given ${fmtDate(l.date)}</div>
+      <div class="nums"><div><small>Lent</small><b>${amt(i.lent, 'owed')}</b></div><div><small>Repaid</small><b>${amt(i.repaid, 'owed')}</b></div><div><small>Outstanding</small><b>${amt(i.out, 'owed')}</b></div></div></button>`;
   }
   return h;
 }
@@ -381,8 +398,7 @@ function lendForm(id) {
     <datalist id="borList">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
     <label for="lAmt">Amount (₱)</label><input id="lAmt" class="amt" inputmode="decimal" placeholder="0.00" value="${l ? esc(l.amount) : ''}">
     <label>From account</label>${chipsHTML('lAcct', l ? l.account : (S.accounts[0] || {}).id)}
-    <div class="row2"><div><label for="lDate">Date</label><input id="lDate" type="date" value="${esc(l ? l.date : todayISO())}"></div>
-    <div><label for="lDue">Due (optional)</label><input id="lDue" type="date" value="${esc(l ? l.due || '' : '')}"></div></div>
+    <label for="lDate">Date lent</label><input id="lDate" type="date" value="${esc(l ? l.date : todayISO())}">
     <label for="lNote">Note (optional)</label><input id="lNote" value="${esc(l ? l.note || '' : '')}">
     <button class="btn gold" id="saveLoan">${l ? 'Save changes' : 'Save loan'}</button>
     ${l ? '<button class="btn light" id="cancelLoan">Cancel</button>' : ''}`);
@@ -394,7 +410,7 @@ function lendForm(id) {
     if (!(amount > 0)) { toast('Enter an amount above ₱0'); return; }
     if (!account) { toast('Pick an account'); return; }
     if (l && cents(amount) < cents(loanInfo(l).repaid)) { toast(`Already repaid ${amtT(loanInfo(l).repaid, 'owed')} — amount can’t be less`); return; }
-    const rec = { borrower, amount, account, date: sh.querySelector('#lDate').value || todayISO(), due: sh.querySelector('#lDue').value || null, note: sh.querySelector('#lNote').value.trim() };
+    const rec = { borrower, amount, account, date: sh.querySelector('#lDate').value || todayISO(), note: sh.querySelector('#lNote').value.trim() };
     if (l) { Object.assign(l, rec); save(); render(); openLoan(l.id); toast('Saved'); }
     else { S.loans.push(Object.assign({ id: uid(), created: Date.now() }, rec)); save(); closeModal(); go('loans'); toast(`Lent ${amtT(amount, 'owed')} to ${borrower}`); }
   };
@@ -403,8 +419,8 @@ function openLoan(id) {
   const l = S.loans.find(x => x.id === id); if (!l) { closeModal(); return; }
   const i = loanInfo(l), reps = repaysOf(id).sort(byNewest);
   let h = mhead(esc(l.borrower)) + `<div style="margin-top:6px"><span class="badge ${i.status}" id="loanStatus">${i.status}</span></div>
-    <div class="sumgrid"><div><small>Lent</small><b>${amt(i.lent, 'owed')}</b></div><div><small>Repaid</small><b>${amt(i.repaid, 'owed')}</b></div><div><small>Outstanding</small><b id="loanOut">${amt(i.out, 'owed', i.status === 'Overdue' ? 'neg' : '')}</b></div></div>
-    <div class="muted" style="margin-top:8px">From ${esc(acctName(l.account))} · ${fmtDate(l.date)}${l.due ? ' · due ' + fmtDate(l.due) : ''}${l.note ? '<br>' + esc(l.note) : ''}</div>
+    <div class="sumgrid"><div><small>Lent</small><b>${amt(i.lent, 'owed')}</b></div><div><small>Repaid</small><b>${amt(i.repaid, 'owed')}</b></div><div><small>Outstanding</small><b id="loanOut">${amt(i.out, 'owed')}</b></div></div>
+    <div class="lbl" style="margin-top:10px;font-size:16px;color:var(--text)" id="loanGiven">Given ${fmtDate(l.date)}</div><div class="muted">From ${esc(acctName(l.account))}${l.note ? '<br>' + esc(l.note) : ''}</div>
     ${i.status !== 'Paid' ? '<button class="btn green" id="repayBtn">💵 Record repayment</button>' : ''}
     <h3>Repayments</h3>`;
   if (!reps.length) h += '<div class="empty">None yet</div>';
@@ -527,12 +543,12 @@ function restoreForm() {
 }
 function csvText() {
   const q = v => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-  const rows = [['Date', 'Type', 'Account', 'To account', 'Amount', 'Borrower', 'Due', 'Note']];
-  for (const a of S.accounts) rows.push(['', 'Opening balance', a.name, '', r2(a.opening).toFixed(2), '', '', '']);
+  const rows = [['Date', 'Type', 'Account', 'To account', 'Amount', 'Borrower', 'Note']];
+  for (const a of S.accounts) rows.push(['', 'Opening balance', a.name, '', r2(a.opening).toFixed(2), '', '']);
   const all = [];
-  for (const t of S.tx) all.push([t.date, t.type === 'in' ? 'Money in' : t.type === 'out' ? 'Money out' : 'Transfer', acctName(t.account), t.type === 'transfer' ? acctName(t.to) : '', r2(t.amount).toFixed(2), '', '', t.note || '']);
-  for (const l of S.loans) all.push([l.date, 'Loan given', acctName(l.account), '', r2(l.amount).toFixed(2), l.borrower, l.due ? fmtDate(l.due) : '', l.note || '']);
-  for (const r of S.repayments) { const l = S.loans.find(x => x.id === r.loanId); all.push([r.date, 'Repayment', acctName(r.account), '', r2(r.amount).toFixed(2), l ? l.borrower : '', '', r.note || '']); }
+  for (const t of S.tx) all.push([t.date, t.type === 'in' ? 'Money in' : t.type === 'out' ? 'Money out' : 'Transfer', acctName(t.account), t.type === 'transfer' ? acctName(t.to) : '', r2(t.amount).toFixed(2), '', t.note || '']);
+  for (const l of S.loans) all.push([l.date, 'Loan given', acctName(l.account), '', r2(l.amount).toFixed(2), l.borrower, l.note || '']);
+  for (const r of S.repayments) { const l = S.loans.find(x => x.id === r.loanId); all.push([r.date, 'Repayment', acctName(r.account), '', r2(r.amount).toFixed(2), l ? l.borrower : '', r.note || '']); }
   all.sort((a, b) => a[0].localeCompare(b[0])).forEach(r => { r[0] = fmtDate(r[0]); rows.push(r); });
   return rows.map(r => r.map(q).join(',')).join('\n');
 }
