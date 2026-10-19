@@ -16,7 +16,7 @@
 :root{--navy:#14213d;--gold:#f5c442;--bg:#f4f6fa;--card:#fff;--text:#1d2433;--muted:#667085;--red:#c62828;--redbg:#fdecea;--green:#1b7f3b;--greenbg:#e8f5e9;--line:#e3e7ef;--amber:#b54708;--amberbg:#fff4e5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);font:17px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-header{background:var(--navy);color:#fff;padding:calc(env(safe-area-inset-top) + 14px) 16px 14px;position:sticky;top:0;z-index:5}
+header{background:var(--navy);color:#fff;padding:calc(env(safe-area-inset-top) + 8px) 14px 8px 16px;position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:62px}
 header h1{margin:0;font-size:20px;font-weight:700}
 header h1 span{color:var(--gold)}
 main{padding:14px 14px calc(96px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
@@ -97,11 +97,22 @@ textarea{min-height:140px;font-size:13px;font-family:ui-monospace,Menlo,monospac
 .sumgrid small{display:block;color:var(--muted);font-size:12px}
 .sumgrid b{font-size:16px}
 label .dh{font-weight:500;color:var(--muted)}
+.eye{border:0;background:#e8ecf4;color:var(--navy);border-radius:12px;min-width:46px;min-height:46px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0 10px;flex:none;vertical-align:middle}
+.eye svg{width:24px;height:24px}
+.eye[aria-pressed=true]{background:var(--navy);color:var(--gold)}
+header .eye{background:rgba(255,255,255,.12);color:#fff}
+header .eye[aria-pressed=true]{background:var(--gold);color:var(--navy)}
+.pv.masked{letter-spacing:1px;color:var(--muted)!important}
+.eyecard{display:flex;align-items:center;gap:10px}
+.eyecard .grow{flex:1;min-width:0}
+.hero .eyecard .grow{text-align:center;padding-left:56px}
+.acct .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct .amtwrap{display:flex;align-items:center;gap:8px;flex:none}
 h3{font-size:15px;margin:18px 0 4px;color:#344054}
 </style>
 </head>
 <body>
-<header><h1>₱ Emz <span>Tracker</span></h1></header>
+<header><h1>₱ Emz <span>Tracker</span></h1><span id="eyeAllWrap"></span></header>
 <main id="app"></main>
 <nav>
   <button data-v="home" class="on"><span class="ic">🏠</span>Home</button>
@@ -112,16 +123,17 @@ h3{font-size:15px;margin:18px 0 4px;color:#344054}
 <div class="toast" id="toast"></div>
 <script>
 'use strict';
-const APP_V = 1;
+const APP_V = 2;
 const KEY = 'emz-money-v1';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function defaultState() {
   return {
     version: 1,
     accounts: [
-      { id: 'main', name: 'BPI Main', opening: 0 },
-      { id: 'timmy', name: 'BPI Timmy', opening: 0 },
-      { id: 'ethan', name: 'BPI Ethan', opening: 0 }
+      { id: 'main', name: 'BPI Main', type: 'bank', opening: 0 },
+      { id: 'timmy', name: 'BPI Timmy', type: 'bank', opening: 0 },
+      { id: 'ethan', name: 'BPI Ethan', type: 'bank', opening: 0 },
+      { id: 'cash', name: 'Cash on hand', type: 'cash', opening: 0 } // v2: new installs only; existing data is never changed
     ],
     tx: [],          // {id,type:'in'|'out'|'transfer',amount,account,to,date,note,created}
     loans: [],       // {id,borrower,amount,account,date,due,note,created}
@@ -150,6 +162,27 @@ const fmtDate = iso => { if (!iso) return ''; const [y, m, d] = iso.split('-'); 
 const acct = id => S.accounts.find(a => a.id === id);
 const acctName = id => { const a = acct(id); return a ? a.name : '(deleted account)'; };
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2400); }
+// ---------- hide amounts (same eye pattern as the gold tracker; remembered on this phone) ----------
+// Kept in its own key so it never touches the money data or backups. Keys: total, owed, net, a:<accountId>.
+const PKEY = 'emz-money-privacy-v1';
+let P; try { P = JSON.parse(localStorage.getItem(PKEY)); } catch (e) { P = null; }
+if (!P || typeof P.h !== 'object' || !P.h) P = { h: {} };
+const savePriv = () => localStorage.setItem(PKEY, JSON.stringify(P));
+const MASK = '₱ ••••••';
+const EYE_OPEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-7-11-7a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+const privKeys = () => ['total', ...S.accounts.map(a => 'a:' + a.id), 'owed', 'net'];
+const hid = k => !!P.h[k];
+const allHidden = () => privKeys().every(hid);
+// An amount: shows ₱ •••••• when its card is hidden (cls = extra classes when shown, e.g. 'neg').
+const amt = (n, k, cls) => hid(k) ? `<span class="pv masked">${MASK}</span>` : `<span class="pv ${cls || ''}">${peso(n)}</span>`;
+const amtT = (n, k) => hid(k) ? MASK : peso(n); // plain text version (toasts)
+const eyeBtn = (k, label) => { const shown = !hid(k);
+  return `<button type="button" class="eye" data-eye="${esc(k)}" aria-pressed="${shown}" aria-label="${shown ? 'Hide' : 'Show'} ${esc(label)}" title="${shown ? 'Hide' : 'Show'} ${esc(label)}" onclick="toggleEye(event,'${esc(k)}')">${shown ? EYE_OFF : EYE_OPEN}</button>`; };
+function toggleEye(e, k) { if (e) { e.preventDefault(); e.stopPropagation(); } P.h[k] = !hid(k); savePriv(); render(); }
+function toggleAll(e) { if (e) { e.preventDefault(); e.stopPropagation(); } const hide = !allHidden(); for (const k of privKeys()) P.h[k] = hide; savePriv(); render(); toast(hide ? 'All amounts hidden' : 'All amounts shown'); }
+function drawEyeAll() { const shown = !allHidden(), l = shown ? 'Hide all amounts' : 'Show all amounts';
+  $('#eyeAllWrap').innerHTML = `<button type="button" class="eye" id="eyeAll" aria-pressed="${shown}" aria-label="${l}" title="${l}" onclick="toggleAll(event)">${shown ? EYE_OFF : EYE_OPEN}</button>`; }
 const byNewest = (a, b) => (b.date || '').localeCompare(a.date || '') || (b.created || 0) - (a.created || 0);
 function parseAmt(v) { const n = Number(String(v).replace(/[₱,\s]/g, '')); return isFinite(n) ? r2(n) : NaN; }
 
@@ -191,7 +224,7 @@ function go(v, opts) {
   render(); window.scrollTo(0, 0);
 }
 function render() {
-  const app = $('#app');
+  const app = $('#app'); drawEyeAll();
   if (view === 'home') app.innerHTML = homeHTML();
   else if (view === 'add') { app.innerHTML = '<div class="card" id="addCard"></div>'; txForm($('#addCard'), null); }
   else if (view === 'loans') app.innerHTML = loansHTML();
@@ -204,15 +237,15 @@ function homeHTML() {
   let h = '';
   if (hasData() && (ds === null || ds >= 7))
     h += `<button class="warn" id="backupNag" onclick="go('set')">💾 ${ds === null ? 'You haven’t backed up yet.' : `Last backup was ${ds} days ago.`} Tap to back up.</button>`;
-  h += `<div class="card hero"><div class="lbl">Total balance</div><div class="big ${tb < 0 ? 'neg' : ''}" id="totalBal">${peso(tb)}</div></div>`;
+  h += `<div class="card hero" id="totalCard"><div class="eyecard"><div class="grow"><div class="lbl">Total balance</div><div class="big" id="totalBal">${amt(tb, 'total', tb < 0 ? 'neg' : '')}</div></div>${eyeBtn('total', 'total balance')}</div></div>`;
   for (const a of S.accounts) {
     const b = balance(a.id);
-    h += `<button class="acct" data-acct="${esc(a.id)}" onclick="openAccount('${esc(a.id)}')"><span>${esc(a.name)}</span><span><b class="${b < 0 ? 'neg' : ''}">${peso(b)}</b> <span class="chev">›</span></span></button>`;
+    h += `<div class="acct" role="button" tabindex="0" data-acct="${esc(a.id)}" onclick="openAccount('${esc(a.id)}')"><span class="nm">${esc(a.name)}</span><span class="amtwrap"><b>${amt(b, 'a:' + a.id, b < 0 ? 'neg' : '')}</b>${eyeBtn('a:' + a.id, a.name)}<span class="chev">›</span></span></div>`;
   }
-  h += `<button class="acct" id="owedCard" onclick="go('loans')" style="flex-direction:column;align-items:stretch">
-    <span class="lbl">Owed to me</span><span class="mid" id="owedTotal">${peso(lt.out)}</span>
-    <span class="muted" id="owedMeta">${lt.open} open loan${lt.open === 1 ? '' : 's'}${lt.overdue ? ` · <span class="red">${lt.overdue} overdue</span>` : ''}</span></button>`;
-  h += `<div class="card"><div class="lbl">Net worth <span class="muted">(balance + owed)</span></div><div class="mid" id="netWorth">${peso(tb + lt.out)}</div></div>`;
+  h += `<div class="acct" role="button" tabindex="0" id="owedCard" onclick="go('loans')"><span class="grow" style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <span class="lbl">Owed to me</span><span class="mid" id="owedTotal">${amt(lt.out, 'owed')}</span>
+    <span class="muted" id="owedMeta">${lt.open} open loan${lt.open === 1 ? '' : 's'}${lt.overdue ? ` · <span class="red">${lt.overdue} overdue</span>` : ''}</span></span>${eyeBtn('owed', 'owed to me')}</div>`;
+  h += `<div class="card" id="netCard"><div class="eyecard"><div class="grow"><div class="lbl">Net worth <span class="muted">(balance + owed)</span></div><div class="mid" id="netWorth">${amt(tb + lt.out, 'net', tb + lt.out < 0 ? 'neg' : '')}</div></div>${eyeBtn('net', 'net worth')}</div></div>`;
   h += `<div class="row2"><button class="btn" onclick="go('add')">➕ Add money</button><button class="btn gold" onclick="lendForm()">🤝 Lend money</button></div>`;
   return h;
 }
@@ -277,7 +310,7 @@ function txForm(root, tx, defAcct) {
       if (tx) { Object.assign(tx, rec); save(); closeModal(); refreshAfterEdit(); toast('Saved'); }
       else {
         S.tx.push(Object.assign({ id: uid(), created: Date.now() }, rec)); save();
-        toast(mode === 'transfer' ? `Moved ${peso(amount)} to ${acctName(to)}` : `${mode === 'in' ? 'Added' : 'Spent'} ${peso(amount)} · ${acctName(from)} now ${peso(balance(from))}`);
+        toast(mode === 'transfer' ? `Moved ${amtT(amount, 'a:' + from)} to ${acctName(to)}` : `${mode === 'in' ? 'Added' : 'Spent'} ${amtT(amount, 'a:' + from)} · ${acctName(from)} now ${amtT(balance(from), 'a:' + from)}`);
         go('home');
       }
     };
@@ -304,19 +337,19 @@ function openAccount(id) {
   for (const l of S.loans) if (l.account === id) rows.push({ d: l, sign: -1, t: 'Lent to ' + l.borrower, kind: 'loan', loan: l.id });
   for (const r of S.repayments) if (r.account === id) { const l = S.loans.find(x => x.id === r.loanId); rows.push({ d: r, sign: 1, t: 'Repaid by ' + (l ? l.borrower : '?'), kind: 'loan', loan: r.loanId }); }
   rows.sort((p, q) => byNewest(p.d, q.d));
-  const b = balance(id);
-  let h = mhead(esc(a.name)) + `<div class="lbl" style="margin-top:8px">Balance</div><div class="big ${b < 0 ? 'neg' : ''}">${peso(b)}</div>
+  const b = balance(id), k = 'a:' + id;
+  let h = mhead(esc(a.name)) + `<div class="lbl" style="margin-top:8px">Balance</div><div class="big" id="acctBal">${amt(b, k, b < 0 ? 'neg' : '')}</div>
     <div class="row2"><button class="btn" onclick="closeModal();addMode='in';addAcct='${esc(id)}';go('add');">➕ Add</button><button class="btn light" onclick="closeModal();go('set')">✏️ Edit account</button></div>
     <h3>Recent</h3><div id="acctRows">`;
-  if (!rows.length) h += `<div class="empty">No entries yet${cents(a.opening) ? ` · opening balance ${peso(a.opening)}` : ''}</div>`;
+  if (!rows.length) h += `<div class="empty">No entries yet${cents(a.opening) ? ` · opening balance ${amt(a.opening, k)}` : ''}</div>`;
   for (const r of rows) {
     const cls = r.x ? 'xfer' : r.sign > 0 ? 'plus' : 'minus';
     h += `<div class="item"><div class="body"><div class="t">${esc(r.t)}</div><div class="muted">${fmtDate(r.d.date)}${r.d.note ? ' · ' + esc(r.d.note) : ''}</div></div>
-      <div class="amtc ${cls}">${r.sign > 0 ? '+' : '−'}${peso(r.d.amount)}</div>
+      <div class="amtc ${hid(k) ? '' : cls}">${hid(k) ? '' : r.sign > 0 ? '+' : '−'}${amt(r.d.amount, k)}</div>
       <div class="acts">${r.kind === 'tx' ? `<button onclick="reopen=()=>openAccount('${esc(id)}');editTx('${r.d.id}')" aria-label="Edit">✏️</button><button class="del" onclick="reopen=()=>openAccount('${esc(id)}');delTx('${r.d.id}')" aria-label="Delete">🗑️</button>`
         : `<button onclick="openLoan('${r.loan}')" aria-label="Open loan">›</button>`}</div></div>`;
   }
-  if (cents(a.opening) && rows.length) h += `<div class="item"><div class="body"><div class="t">Opening balance</div></div><div class="amtc">${peso(a.opening)}</div></div>`;
+  if (cents(a.opening) && rows.length) h += `<div class="item"><div class="body"><div class="t">Opening balance</div></div><div class="amtc">${amt(a.opening, k)}</div></div>`;
   h += '</div>';
   openModal(h);
 }
@@ -324,7 +357,7 @@ function openAccount(id) {
 // ---------- loans ----------
 function loansHTML() {
   const lt = loanTotals();
-  let h = `<div class="card hero"><div class="lbl">Owed to me</div><div class="big" id="loansOwed">${peso(lt.out)}</div>
+  let h = `<div class="card hero"><div class="lbl">Owed to me</div><div class="big" id="loansOwed">${amt(lt.out, 'owed')}</div>
     <div class="muted">${lt.open} open${lt.overdue ? ` · <span class="red">${lt.overdue} overdue</span>` : ''}</div></div>
     <button class="btn gold" id="lendBtn" onclick="lendForm()" style="margin:0 0 14px">🤝 Lend money</button>`;
   if (!S.loans.length) return h + '<div class="empty">No loans yet.</div>';
@@ -336,7 +369,7 @@ function loansHTML() {
     h += `<button class="loan ${i.status.toLowerCase()}" data-loan="${l.id}" onclick="openLoan('${l.id}')">
       <div class="top"><span class="who">${esc(l.borrower)}</span><span class="badge ${i.status}">${i.status}</span></div>
       <div class="muted">${fmtDate(l.date)}${l.due ? ' · due ' + fmtDate(l.due) : ''}</div>
-      <div class="nums"><div><small>Lent</small><b>${peso(i.lent)}</b></div><div><small>Repaid</small><b>${peso(i.repaid)}</b></div><div><small>Outstanding</small><b class="${i.status === 'Overdue' ? 'neg' : ''}">${peso(i.out)}</b></div></div></button>`;
+      <div class="nums"><div><small>Lent</small><b>${amt(i.lent, 'owed')}</b></div><div><small>Repaid</small><b>${amt(i.repaid, 'owed')}</b></div><div><small>Outstanding</small><b>${amt(i.out, 'owed', i.status === 'Overdue' ? 'neg' : '')}</b></div></div></button>`;
   }
   return h;
 }
@@ -360,23 +393,23 @@ function lendForm(id) {
     if (!borrower) { toast('Enter the borrower’s name'); return; }
     if (!(amount > 0)) { toast('Enter an amount above ₱0'); return; }
     if (!account) { toast('Pick an account'); return; }
-    if (l && cents(amount) < cents(loanInfo(l).repaid)) { toast(`Already repaid ${peso(loanInfo(l).repaid)} — amount can’t be less`); return; }
+    if (l && cents(amount) < cents(loanInfo(l).repaid)) { toast(`Already repaid ${amtT(loanInfo(l).repaid, 'owed')} — amount can’t be less`); return; }
     const rec = { borrower, amount, account, date: sh.querySelector('#lDate').value || todayISO(), due: sh.querySelector('#lDue').value || null, note: sh.querySelector('#lNote').value.trim() };
     if (l) { Object.assign(l, rec); save(); render(); openLoan(l.id); toast('Saved'); }
-    else { S.loans.push(Object.assign({ id: uid(), created: Date.now() }, rec)); save(); closeModal(); go('loans'); toast(`Lent ${peso(amount)} to ${borrower}`); }
+    else { S.loans.push(Object.assign({ id: uid(), created: Date.now() }, rec)); save(); closeModal(); go('loans'); toast(`Lent ${amtT(amount, 'owed')} to ${borrower}`); }
   };
 }
 function openLoan(id) {
   const l = S.loans.find(x => x.id === id); if (!l) { closeModal(); return; }
   const i = loanInfo(l), reps = repaysOf(id).sort(byNewest);
   let h = mhead(esc(l.borrower)) + `<div style="margin-top:6px"><span class="badge ${i.status}" id="loanStatus">${i.status}</span></div>
-    <div class="sumgrid"><div><small>Lent</small><b>${peso(i.lent)}</b></div><div><small>Repaid</small><b>${peso(i.repaid)}</b></div><div><small>Outstanding</small><b id="loanOut" class="${i.status === 'Overdue' ? 'neg' : ''}">${peso(i.out)}</b></div></div>
+    <div class="sumgrid"><div><small>Lent</small><b>${amt(i.lent, 'owed')}</b></div><div><small>Repaid</small><b>${amt(i.repaid, 'owed')}</b></div><div><small>Outstanding</small><b id="loanOut">${amt(i.out, 'owed', i.status === 'Overdue' ? 'neg' : '')}</b></div></div>
     <div class="muted" style="margin-top:8px">From ${esc(acctName(l.account))} · ${fmtDate(l.date)}${l.due ? ' · due ' + fmtDate(l.due) : ''}${l.note ? '<br>' + esc(l.note) : ''}</div>
     ${i.status !== 'Paid' ? '<button class="btn green" id="repayBtn">💵 Record repayment</button>' : ''}
     <h3>Repayments</h3>`;
   if (!reps.length) h += '<div class="empty">None yet</div>';
   for (const r of reps) h += `<div class="item"><div class="body"><div class="t">Into ${esc(acctName(r.account))}</div><div class="muted">${fmtDate(r.date)}${r.note ? ' · ' + esc(r.note) : ''}</div></div>
-    <div class="amtc plus">+${peso(r.amount)}</div><div class="acts"><button onclick="repayForm('${id}','${r.id}')" aria-label="Edit">✏️</button><button class="del" onclick="delRepay('${r.id}')" aria-label="Delete">🗑️</button></div></div>`;
+    <div class="amtc ${hid('owed') ? '' : 'plus'}">${hid('owed') ? '' : '+'}${amt(r.amount, 'owed')}</div><div class="acts"><button onclick="repayForm('${id}','${r.id}')" aria-label="Edit">✏️</button><button class="del" onclick="delRepay('${r.id}')" aria-label="Delete">🗑️</button></div></div>`;
   h += `<div class="row2"><button class="btn light" id="editLoan">✏️ Edit loan</button><button class="btn danger" id="delLoan">🗑️ Delete loan</button></div>`;
   const sh = openModal(h);
   const rb = sh.querySelector('#repayBtn'); if (rb) rb.onclick = () => repayForm(id);
@@ -390,9 +423,9 @@ function repayForm(loanId, repId) {
   const l = S.loans.find(x => x.id === loanId); if (!l) return;
   const r = repId ? S.repayments.find(x => x.id === repId) : null;
   const maxC = cents(loanInfo(l).out) + (r ? cents(r.amount) : 0);
-  const sh = openModal(mhead(r ? 'Edit repayment' : 'Record repayment') + `<div class="muted">${esc(l.borrower)} · outstanding ${peso(maxC / 100)}</div>
+  const sh = openModal(mhead(r ? 'Edit repayment' : 'Record repayment') + `<div class="muted">${esc(l.borrower)} · outstanding ${amt(maxC / 100, 'owed')}</div>
     <label for="rAmt">Amount (₱)</label><input id="rAmt" class="amt" inputmode="decimal" placeholder="0.00" value="${r ? esc(r.amount) : ''}">
-    ${r ? '' : `<button type="button" class="chip" id="rFull" style="margin-top:8px">Full amount ${peso(maxC / 100)}</button>`}
+    ${r ? '' : `<button type="button" class="chip" id="rFull" style="margin-top:8px">Full amount${hid('owed') ? '' : ' ' + peso(maxC / 100)}</button>`}
     <label>Into account</label>${chipsHTML('rAcct', r ? r.account : (acct(l.account) ? l.account : (S.accounts[0] || {}).id))}
     <label for="rDate">Date</label><input id="rDate" type="date" value="${esc(r ? r.date : todayISO())}">
     <label for="rNote">Note (optional)</label><input id="rNote" value="${esc(r ? r.note || '' : '')}">
@@ -404,16 +437,16 @@ function repayForm(loanId, repId) {
   sh.querySelector('#saveRepay').onclick = () => {
     const amount = parseAmt(sh.querySelector('#rAmt').value), account = chipVal(sh, 'rAcct');
     if (!(amount > 0)) { toast('Enter an amount above ₱0'); return; }
-    if (cents(amount) > maxC) { toast(`That’s more than the ${peso(maxC / 100)} outstanding`); return; }
+    if (cents(amount) > maxC) { toast(`That’s more than the ${amtT(maxC / 100, 'owed')} outstanding`); return; }
     if (!account) { toast('Pick an account'); return; }
     const rec = { amount, account, date: sh.querySelector('#rDate').value || todayISO(), note: sh.querySelector('#rNote').value.trim() };
     if (r) Object.assign(r, rec); else S.repayments.push(Object.assign({ id: uid(), loanId, created: Date.now() }, rec));
     save(); render(); openLoan(loanId);
-    toast(loanInfo(l).status === 'Paid' ? `${l.borrower}’s loan is fully paid 🎉` : `Repayment saved · ${peso(loanInfo(l).out)} left`);
+    toast(loanInfo(l).status === 'Paid' ? `${l.borrower}’s loan is fully paid 🎉` : `Repayment saved · ${amtT(loanInfo(l).out, 'owed')} left`);
   };
 }
 function delRepay(id) {
-  const r = S.repayments.find(x => x.id === id); if (!r || !confirm(`Delete this ${peso(r.amount)} repayment?`)) return;
+  const r = S.repayments.find(x => x.id === id); if (!r || !confirm(`Delete this ${amtT(r.amount, 'owed')} repayment?`)) return;
   S.repayments = S.repayments.filter(x => x !== r); save(); render(); openLoan(r.loanId); toast('Deleted');
 }
 
@@ -423,7 +456,7 @@ function setHTML() {
   let h = '<div class="card"><h2>Accounts</h2><div id="acctList">';
   for (const a of S.accounts) h += `<div class="setacct" data-id="${esc(a.id)}"><div class="r">
       <div><label>Name</label><input class="aname" value="${esc(a.name)}"></div>
-      <div><label>Opening ₱</label><input class="aopen" inputmode="decimal" value="${(cents(a.opening) / 100).toFixed(2)}"></div>
+      <div><label>Opening ₱</label><input class="aopen" ${hid('a:' + a.id) ? 'type="password" ' : ''}inputmode="decimal" value="${(cents(a.opening) / 100).toFixed(2)}"></div>
       <button class="iconbtn adel" aria-label="Delete account">🗑️</button></div></div>`;
   h += `</div><button class="btn light" id="addAcct">＋ Add account</button></div>
     <div class="card"><h2>Backup</h2><div class="muted" id="lastBackup">${S.lastBackup ? `Last backup: ${fmtDate(new Date(S.lastBackup - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10))} (${ds === 0 ? 'today' : ds + ' day' + (ds === 1 ? '' : 's') + ' ago'})` : 'No backup yet'}</div>
@@ -449,7 +482,7 @@ function bindSettings() {
   });
   $('#addAcct').onclick = () => {
     const name = (prompt('New account name', 'BPI ') || '').trim(); if (!name) return;
-    S.accounts.push({ id: uid(), name, opening: 0 }); save(); render(); toast('Account added');
+    const nid = uid(), wasAll = allHidden(); S.accounts.push({ id: nid, name, type: /cash/i.test(name) ? 'cash' : 'bank', opening: 0 }); if (wasAll) { P.h['a:' + nid] = true; savePriv(); } save(); render(); toast('Account added');
   };
   $('#copyBk').onclick = async () => { if (await copyText(backupText())) { markBackup(); toast('Backup copied — paste it somewhere safe'); } };
   $('#shareBk').onclick = async () => {
