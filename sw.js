@@ -1,4 +1,4 @@
-const CACHE = 'emz-money-v7';
+const CACHE = 'emz-money-v8';
 const ASSETS = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './fonts/nunito-400-700.woff2', './fonts/playfair-display-600-700.woff2'];
 // v7: no skipWaiting on install. A first install activates straight away anyway (nothing to replace);
 // an update waits until the page asks (user tapped "New version ready"), so nothing swaps mid-session.

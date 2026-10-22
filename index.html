@@ -100,6 +100,25 @@ textarea{min-height:140px;font-size:13px;font-family:ui-monospace,Menlo,monospac
 .iconbtn{border:0;background:var(--redbg);color:var(--red);border-radius:10px;min-height:50px;font-size:18px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--text);color:#fff;padding:12px 18px;border-radius:12px;font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:40;max-width:90%;text-align:center}
 .toast.show{opacity:.92}
+/* v8 photos */
+.thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.th{position:relative;width:60px;height:60px;border:0;padding:0;border-radius:10px;overflow:hidden;background:var(--soft);flex:0 0 auto}
+.th img{width:100%;height:100%;object-fit:cover;display:block}
+.th.blur img{filter:blur(9px);transform:scale(1.15)}
+.th.blur::after{content:'🙈';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px}
+.th .thx{position:absolute;top:2px;right:2px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(58,31,51,.8);color:#fff;font-size:13px;line-height:26px;padding:0}
+.imgfield .thumbs:empty{display:none}
+.addimg{display:flex;align-items:center;justify-content:center;cursor:pointer;margin-top:8px}
+.imgnote{margin-top:4px}
+.clip{white-space:nowrap}
+.viewer{position:fixed;inset:0;background:#160a13;z-index:50;display:flex;flex-direction:column;color:#fff}
+.viewer .vbar{display:flex;justify-content:space-between;align-items:center;padding:calc(8px + env(safe-area-inset-top)) 10px 8px;gap:8px}
+.viewer .vbar button{border:0;background:rgba(255,255,255,.14);color:#fff;border-radius:12px;min-width:48px;min-height:48px;font-size:20px;margin-left:6px}
+.viewer .vstage{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;user-select:none}
+.viewer .vstage img{max-width:100%;max-height:100%;object-fit:contain;-webkit-user-drag:none}
+.viewer .vnav{position:absolute;top:50%;transform:translateY(-50%);border:0;background:rgba(255,255,255,.16);color:#fff;width:48px;height:64px;font-size:34px;border-radius:12px}
+.viewer .vnav.prev{left:6px}.viewer .vnav.next{right:6px}
+.viewer .vnav[hidden]{display:none}
 .updToast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--plum);color:#fff;border:1px solid var(--rose);padding:10px 16px;border-radius:999px;font:700 14px 'Nunito',sans-serif;z-index:41;box-shadow:0 4px 14px rgba(58,31,51,.25);white-space:nowrap}
 .updToast[hidden]{display:none}
 .empty{text-align:center;color:var(--muted);padding:20px 10px}
@@ -145,7 +164,7 @@ h3{font-size:15px;margin:18px 0 4px;color:var(--label)}
 <button class="updToast" id="updToast" hidden>New version ready · Tap to update</button>
 <script>
 'use strict';
-const APP_V = 7;
+const APP_V = 8;
 const KEY = 'emz-money-v1';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function defaultState() {
@@ -189,7 +208,7 @@ const acct = id => S.accounts.find(a => a.id === id);
 const acctName = id => { if (id == null || id === '') return 'No account'; const a = acct(id); return a ? a.name : '(deleted account)'; };
 const NONE = '__none'; // chip value for "None" in loan / repayment forms
 // A loan's tranches: the original amount first, then any 'Add more' tranches (v4). Old data without 'more' still works.
-const tranches = l => [{ id: null, first: true, amount: l.amount, account: l.account == null ? null : l.account, date: l.date, note: l.note, created: l.created }, ...(Array.isArray(l.more) ? l.more : [])];
+const tranches = l => [{ id: null, first: true, amount: l.amount, account: l.account == null ? null : l.account, date: l.date, note: l.note, created: l.created, images: l.images }, ...(Array.isArray(l.more) ? l.more : [])];
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2400); }
 // ---------- hide amounts (same eye pattern as the gold tracker; remembered on this phone) ----------
 // Kept in its own key so it never touches the money data or backups. Keys: total, owed, net, a:<accountId>.
@@ -304,7 +323,7 @@ function openModal(html) {
   document.body.appendChild(m); document.body.style.overflow = 'hidden';
   return m.firstElementChild;
 }
-function closeModal() { const m = $('#modal'); if (m) m.remove(); document.body.style.overflow = ''; }
+function closeModal() { if (formImgs) { const f = formImgs; formImgs = null; f.discard(); } const m = $('#modal'); if (m) m.remove(); document.body.style.overflow = ''; }
 const mhead = t => `<div class="mh"><h2>${t}</h2><button class="x" onclick="closeModal()" aria-label="Close">✕</button></div>`;
 function chipsHTML(id, sel, exclude, noneLabel) {
   return `<div class="chips" id="${id}">` + S.accounts.filter(a => a.id !== exclude).map(a => `<button type="button" class="chip ${a.id === sel ? 'on' : ''}" data-id="${esc(a.id)}">${esc(a.name)}</button>`).join('')
@@ -451,7 +470,7 @@ function loansHTML() {
     const nMore = tranches(l).length - 1;
     h += `<button class="loan ${i.status.toLowerCase()}" data-loan="${l.id}" onclick="openLoan('${l.id}')">
       <div class="top"><span class="who">${esc(l.borrower)}</span><span class="badge ${i.status}">${i.status}</span></div>
-      <div class="muted lgiven">Given ${fmtDate(l.date)}${nMore ? ` · +${nMore} more` : ''}</div>
+      <div class="muted lgiven">Given ${fmtDate(l.date)}${nMore ? ` · +${nMore} more` : ''}${loanImgCount(l) ? ` · <span class="clip" aria-label="${loanImgCount(l)} photos">📎 ${loanImgCount(l)}</span>` : ''}</div>
       <div class="nums"><div><small>Lent</small><b>${amt(i.lent, 'owed')}</b></div><div><small>Repaid</small><b>${amt(i.repaid, 'owed')}</b></div><div><small>Outstanding</small><b>${amt(i.out, 'owed')}</b></div></div></button>`;
   }
   return h;
@@ -467,17 +486,19 @@ function lendForm(id) {
     <label>From account</label>${chipsHTML('lAcct', l ? selOf(l.account) : (S.accounts[0] || {}).id, null, 'None (already given / not from an account)')}
     <label for="lDate">Date lent</label><input id="lDate" type="date" value="${esc(l ? l.date : todayISO())}">
     <label for="lNote">Note (optional)</label><input id="lNote" value="${esc(l ? l.note || '' : '')}">
+    ${imgFieldHTML()}
     <button class="btn gold" id="saveLoan">${l ? 'Save changes' : 'Save loan'}</button>
     ${l ? '<button class="btn light" id="cancelLoan">Cancel</button>' : ''}`);
-  bindChips(sh, 'lAcct');
+  bindChips(sh, 'lAcct'); const imf = bindImgField(sh, l && l.images);
   if (l) sh.querySelector('#cancelLoan').onclick = () => openLoan(l.id);
   sh.querySelector('#saveLoan').onclick = () => {
     const borrower = sh.querySelector('#lBor').value.trim(), amount = parseAmt(sh.querySelector('#lAmt').value), account = chipAcct(sh, 'lAcct');
     if (!borrower) { toast('Enter the borrower’s name'); return; }
     if (!(amount > 0)) { toast('Enter an amount above ₱0'); return; }
     if (account === undefined) { toast('Pick an account or None'); return; }
+    if (imf.busy) { toast('Still adding photos…'); return; }
     if (l && cents(amount) + moreC < cents(loanInfo(l).repaid)) { toast(`Already repaid ${amtT(loanInfo(l).repaid, 'owed')} — total lent can’t be less`); return; }
-    const rec = { borrower, amount, account, date: sh.querySelector('#lDate').value || todayISO(), note: sh.querySelector('#lNote').value.trim() };
+    const rec = { borrower, amount, account, date: sh.querySelector('#lDate').value || todayISO(), note: sh.querySelector('#lNote').value.trim(), images: imf.commit() };
     if (l) { Object.assign(l, rec); save(); render(); openLoan(l.id); toast('Saved'); }
     else { S.loans.push(Object.assign({ id: uid(), created: Date.now(), more: [] }, rec)); save(); closeModal(); go('loans'); toast(`Lent ${amtT(amount, 'owed')} to ${borrower}`); }
   };
@@ -492,16 +513,18 @@ function trancheForm(loanId, tid) {
     <label>From account</label>${chipsHTML('tAcct', t ? selOf(t.account) : (l.account != null && acct(l.account) ? l.account : (S.accounts[0] || {}).id), null, 'None (already given / not from an account)')}
     <label for="tDate">Date lent</label><input id="tDate" type="date" value="${esc(t ? t.date : todayISO())}">
     <label for="tNote">Note (optional)</label><input id="tNote" value="${esc(t ? t.note || '' : '')}">
+    ${imgFieldHTML()}
     <button class="btn gold" id="saveTranche">${t ? 'Save changes' : 'Add to loan'}</button>
     <button class="btn light" id="cancelTranche">Cancel</button>`);
-  bindChips(sh, 'tAcct');
+  bindChips(sh, 'tAcct'); const imf = bindImgField(sh, t && t.images);
   sh.querySelector('#cancelTranche').onclick = () => openLoan(loanId);
   sh.querySelector('#saveTranche').onclick = () => {
     const amount = parseAmt(sh.querySelector('#tAmt').value), account = chipAcct(sh, 'tAcct');
     if (!(amount > 0)) { toast('Enter an amount above ₱0'); return; }
     if (account === undefined) { toast('Pick an account or None'); return; }
+    if (imf.busy) { toast('Still adding photos…'); return; }
     if (t && cents(loanInfo(l).lent) - cents(t.amount) + cents(amount) < cents(loanInfo(l).repaid)) { toast('Total lent can’t be less than what’s been repaid'); return; }
-    const rec = { amount, account, date: sh.querySelector('#tDate').value || todayISO(), note: sh.querySelector('#tNote').value.trim() };
+    const rec = { amount, account, date: sh.querySelector('#tDate').value || todayISO(), note: sh.querySelector('#tNote').value.trim(), images: imf.commit() };
     if (t) Object.assign(t, rec); else l.more.push(Object.assign({ id: uid(), created: Date.now() }, rec));
     save(); render(); openLoan(loanId); toast(t ? 'Saved' : `Added ${amtT(amount, 'owed')} · ${l.borrower} now owes ${amtT(loanInfo(l).out, 'owed')}`);
   };
@@ -511,7 +534,7 @@ function delTranche(loanId, tid) {
   const t = l.more.find(x => x.id === tid); if (!t) return;
   if (cents(loanInfo(l).lent) - cents(t.amount) < cents(loanInfo(l).repaid)) { toast('Can’t remove — more has been repaid than would be left'); return; }
   if (!confirm(`Remove the ${amtT(t.amount, 'owed')} added on ${fmtDate(t.date)}?`)) return;
-  l.more = l.more.filter(x => x !== t); save(); render(); openLoan(loanId); toast('Removed');
+  l.more = l.more.filter(x => x !== t); delImages(t.images); save(); render(); openLoan(loanId); toast('Removed');
 }
 function openLoan(id) {
   const l = S.loans.find(x => x.id === id); if (!l) { closeModal(); return; }
@@ -522,20 +545,20 @@ function openLoan(id) {
     ${i.status !== 'Paid' ? '<button class="btn green" id="repayBtn">💵 Record repayment</button>' : ''}
     <button class="btn light" id="moreBtn">➕ Add more to this loan</button>
     <h3>Lent</h3><div id="trancheList">`;
-  for (const t of tr) h += `<div class="item tranche"><div class="body"><div class="t">Given ${fmtDate(t.date)}</div><div class="muted">${esc(fromTxt(t.account))}${t.note ? ' · ' + esc(t.note) : ''}</div></div>
+  for (const t of tr) h += `<div class="item tranche"><div class="body"><div class="t">Given ${fmtDate(t.date)}</div><div class="muted">${esc(fromTxt(t.account))}${t.note ? ' · ' + esc(t.note) : ''}</div>${thumbsHTML(t.images, t.first ? 'L:' + id : 'T:' + id + ':' + t.id)}</div>
     <div class="amtc">${amt(t.amount, 'owed')}</div><div class="acts">${t.first ? `<button onclick="lendForm('${id}')" aria-label="Edit">✏️</button>` : `<button onclick="trancheForm('${id}','${t.id}')" aria-label="Edit">✏️</button><button class="del" onclick="delTranche('${id}','${t.id}')" aria-label="Delete">🗑️</button>`}</div></div>`;
   h += `</div><h3>Repayments</h3><div id="repayList">`;
   if (!reps.length) h += '<div class="empty">None yet</div>';
-  for (const r of reps) h += `<div class="item repay"><div class="body"><div class="t">${r.account == null ? 'Not into an account' : 'Into ' + esc(acctName(r.account))}</div><div class="muted">${fmtDate(r.date)}${r.note ? ' · ' + esc(r.note) : ''}</div></div>
+  for (const r of reps) h += `<div class="item repay"><div class="body"><div class="t">${r.account == null ? 'Not into an account' : 'Into ' + esc(acctName(r.account))}</div><div class="muted">${fmtDate(r.date)}${r.note ? ' · ' + esc(r.note) : ''}</div>${thumbsHTML(r.images, 'R:' + r.id)}</div>
     <div class="amtc ${hid('owed') ? '' : 'plus'}">${hid('owed') ? '' : '+'}${amt(r.amount, 'owed')}</div><div class="acts"><button onclick="repayForm('${id}','${r.id}')" aria-label="Edit">✏️</button><button class="del" onclick="delRepay('${r.id}')" aria-label="Delete">🗑️</button></div></div>`;
   h += `</div><div class="row2"><button class="btn light" id="editLoan">✏️ Edit loan</button><button class="btn danger" id="delLoan">🗑️ Delete loan</button></div>`;
-  const sh = openModal(h);
+  const sh = openModal(h); fillThumbs(sh);
   const rb = sh.querySelector('#repayBtn'); if (rb) rb.onclick = () => repayForm(id);
   sh.querySelector('#moreBtn').onclick = () => trancheForm(id);
   sh.querySelector('#editLoan').onclick = () => lendForm(id);
   sh.querySelector('#delLoan').onclick = () => {
     if (!confirm(`Delete this loan to ${l.borrower}${reps.length ? ` and its ${reps.length} repayment${reps.length > 1 ? 's' : ''}` : ''}?`)) return;
-    S.loans = S.loans.filter(x => x.id !== id); S.repayments = S.repayments.filter(r => r.loanId !== id); save(); closeModal(); render(); toast('Loan deleted');
+    delImages(loanImgIds(l)); S.loans = S.loans.filter(x => x.id !== id); S.repayments = S.repayments.filter(r => r.loanId !== id); save(); closeModal(); render(); toast('Loan deleted');
   };
 }
 function repayForm(loanId, repId) {
@@ -548,9 +571,10 @@ function repayForm(loanId, repId) {
     <label>Into account</label>${chipsHTML('rAcct', r ? selOf(r.account) : (l.account != null && acct(l.account) ? l.account : (S.accounts[0] || {}).id), null, 'None (not into an account)')}
     <label for="rDate">Date</label><input id="rDate" type="date" value="${esc(r ? r.date : todayISO())}">
     <label for="rNote">Note (optional)</label><input id="rNote" value="${esc(r ? r.note || '' : '')}">
+    ${imgFieldHTML()}
     <button class="btn green" id="saveRepay">${r ? 'Save changes' : 'Save repayment'}</button>
     <button class="btn light" id="cancelRepay">Cancel</button>`);
-  bindChips(sh, 'rAcct');
+  bindChips(sh, 'rAcct'); const imf = bindImgField(sh, r && r.images);
   const full = sh.querySelector('#rFull'); if (full) full.onclick = () => { sh.querySelector('#rAmt').value = (maxC / 100).toFixed(2); };
   sh.querySelector('#cancelRepay').onclick = () => openLoan(loanId);
   sh.querySelector('#saveRepay').onclick = () => {
@@ -558,7 +582,8 @@ function repayForm(loanId, repId) {
     if (!(amount > 0)) { toast('Enter an amount above ₱0'); return; }
     if (cents(amount) > maxC) { toast(`That’s more than the ${amtT(maxC / 100, 'owed')} outstanding`); return; }
     if (account === undefined) { toast('Pick an account or None'); return; }
-    const rec = { amount, account, date: sh.querySelector('#rDate').value || todayISO(), note: sh.querySelector('#rNote').value.trim() };
+    if (imf.busy) { toast('Still adding photos…'); return; }
+    const rec = { amount, account, date: sh.querySelector('#rDate').value || todayISO(), note: sh.querySelector('#rNote').value.trim(), images: imf.commit() };
     if (r) Object.assign(r, rec); else S.repayments.push(Object.assign({ id: uid(), loanId, created: Date.now() }, rec));
     save(); render(); openLoan(loanId);
     toast(loanInfo(l).status === 'Paid' ? `${l.borrower}’s loan is fully paid 🎉` : `Repayment saved · ${amtT(loanInfo(l).out, 'owed')} left`);
@@ -566,7 +591,7 @@ function repayForm(loanId, repId) {
 }
 function delRepay(id) {
   const r = S.repayments.find(x => x.id === id); if (!r || !confirm(`Delete this ${amtT(r.amount, 'owed')} repayment?`)) return;
-  S.repayments = S.repayments.filter(x => x !== r); save(); render(); openLoan(r.loanId); toast('Deleted');
+  S.repayments = S.repayments.filter(x => x !== r); delImages(r.images); save(); render(); openLoan(r.loanId); toast('Deleted');
 }
 
 // ---------- settings: accounts + backup ----------
@@ -582,6 +607,7 @@ function setHTML() {
     <div class="muted" style="margin-top:4px">Auto backups below are kept on this phone only. Copy or share a backup to yourself (e.g. Messenger, email) now and then.</div>
     <div class="muted" id="storageStatus" style="margin-top:4px">${storagePersisted === true ? '🔒 Storage: persistent — Chrome won’t clear it to free space' : storagePersisted === false ? '⚠️ Storage: not persistent — Chrome may clear it if the phone runs low on space' : 'Storage: checking…'}</div>
     <div class="row2"><button class="btn" id="copyBk">📋 Copy backup</button><button class="btn" id="shareBk">📤 Share backup</button></div>
+    <div class="muted imgnote" id="copyNote">📎 Copy / Share backups are text only — photos aren’t included. The phone backup file (below) keeps photos too.</div>
     <button class="btn light" id="restoreBk">♻️ Restore from backup (paste)</button>
     <button class="btn light" id="copyCsv">📄 Copy as CSV (spreadsheet)</button></div>
     ${fileCardHTML()}
@@ -632,20 +658,25 @@ async function copyText(text) {
   }
   return ok;
 }
-function parseBackup(txt) {
-  let d; try { d = JSON.parse(String(txt).trim()); } catch (e) { return null; }
-  if (d && d.data) d = d.data;
-  return valid(d) ? d : null;
+function parseBackup(txt) { const r = parseBackupFull(txt); return r ? r.d : null; }
+// Returns { d: data, images: { id: dataURL } } — images only appear in file backups.
+function parseBackupFull(txt) {
+  let o; try { o = JSON.parse(String(txt).trim()); } catch (e) { return null; }
+  let d = o, images = {};
+  if (o && o.data) { d = o.data; if (o.images && typeof o.images === 'object') for (const [k, v] of Object.entries(o.images)) if (typeof v === 'string' && v.startsWith('data:image/')) images[k] = v; }
+  return valid(d) ? { d, images } : null;
 }
+const photoTxt = n => n ? ` · ${n} photo${n === 1 ? '' : 's'}` : '';
 function restoreForm() {
   const sh = openModal(mhead('Restore backup') + `<div class="muted">Paste the backup text you copied or shared earlier. This replaces everything currently in the app.</div>
     <textarea id="restoreTxt" placeholder='{"app":"emz-tracker",...}'></textarea>
     <button class="btn" id="doRestore">Restore</button><button class="btn light" onclick="closeModal()">Cancel</button>`);
   sh.querySelector('#doRestore').onclick = () => {
-    const d = parseBackup(sh.querySelector('#restoreTxt').value);
-    if (!d) { toast('That doesn’t look like a Ledger backup'); return; }
-    if (!confirm(`Replace all current data with this backup?\n${d.accounts.length} accounts · ${d.tx.length} transactions · ${d.loans.length} loans · ${d.repayments.length} repayments`)) return;
-    applyRestore(d, 'Backup restored');
+    const pb = parseBackupFull(sh.querySelector('#restoreTxt').value);
+    if (!pb) { toast('That doesn’t look like a Ledger backup'); return; }
+    const d = pb.d, ni = Object.keys(pb.images).length;
+    if (!confirm(`Replace all current data with this backup?\n${d.accounts.length} accounts · ${d.tx.length} transactions · ${d.loans.length} loans · ${d.repayments.length} repayments${photoTxt(ni)}`)) return;
+    applyRestore(d, 'Backup restored', false, pb.images);
   };
 }
 function csvText() {
@@ -677,9 +708,10 @@ let idbP = null;
 function idb() {
   if (!idbP) idbP = new Promise((res, rej) => {
     if (!window.indexedDB) return rej(new Error('no indexedDB'));
-    const r = indexedDB.open('emz-money-backups', 1);
-    r.onupgradeneeded = () => { const db = r.result; if (!db.objectStoreNames.contains('snaps')) db.createObjectStore('snaps', { keyPath: 'ts' }); if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv'); };
-    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    const r = indexedDB.open('emz-money-backups', 2); // v2 (app v8): + 'images' store (photo blobs keyed by image id)
+    r.onupgradeneeded = () => { const db = r.result; if (!db.objectStoreNames.contains('snaps')) db.createObjectStore('snaps', { keyPath: 'ts' }); if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv'); if (!db.objectStoreNames.contains('images')) db.createObjectStore('images'); };
+    r.onsuccess = () => { const db = r.result; db.onversionchange = () => { db.close(); idbP = null; }; res(db); }; r.onerror = () => rej(r.error);
+    r.onblocked = () => console.warn('IndexedDB upgrade waiting for another open tab');
   });
   return idbP;
 }
@@ -727,8 +759,9 @@ async function restoreSnap(ts) {
   await applyRestore(d, 'Auto backup restored', true);
 }
 // All restores go through here: snapshot current data first (undo), then replace.
-async function applyRestore(d, msg, keepLastBackup) {
+async function applyRestore(d, msg, keepLastBackup, images) {
   await queueSnap('Before restore', true);
+  if (images && Object.keys(images).length) { try { await putImages(images); } catch (e) { toast('Some photos couldn’t be restored'); } } // existing photos are kept
   const lb = S.lastBackup;
   S = Object.assign(defaultState(), d); S.lastBackup = keepLastBackup ? (d.lastBackup || lb || null) : Date.now();
   save(); await snapChain; closeModal(); go('home'); toast(msg);
@@ -759,7 +792,7 @@ async function writeFile() {
   try {
     filePerm = fileHandle.queryPermission ? await fileHandle.queryPermission({ mode: 'readwrite' }) : 'granted';
     if (filePerm !== 'granted') { FM.status = 'perm'; saveFM(); if (view === 'home' || view === 'set') render(); return false; }
-    const w = await fileHandle.createWritable(); await w.write(backupText()); await w.close();
+    const text = await fileBackupText(); const w = await fileHandle.createWritable(); await w.write(text); await w.close();
     FM.name = fileHandle.name || FM.name; FM.lastSaved = Date.now(); FM.status = 'ok'; FM.error = ''; saveFM();
   } catch (e) {
     const missing = e && (e.name === 'NotFoundError' || e.name === 'NotReadableError' || e.name === 'InvalidStateError');
@@ -795,19 +828,20 @@ async function restoreFromFile() {
     if (typeof window.showOpenFilePicker === 'function') { const [h] = await window.showOpenFilePicker({ types: [{ description: 'Ledger backup', accept: { 'application/json': ['.json'] } }] }); text = await (await h.getFile()).text(); }
     else { text = await new Promise((res, rej) => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'application/json,.json'; i.onchange = () => i.files[0] ? i.files[0].text().then(res, rej) : rej(new Error('none')); i.click(); }); }
   } catch (e) { if (!e || e.name !== 'AbortError') toast('Couldn’t read that file'); return; }
-  const d = parseBackup(text); if (!d) { toast('That file isn’t a Ledger backup'); return; }
-  if (!confirm(`Replace all current data with this backup file?\n${d.accounts.length} accounts · ${d.tx.length} transactions · ${d.loans.length} loans · ${d.repayments.length} repayments`)) return;
-  await applyRestore(d, 'Backup file restored', true);
+  const pb = parseBackupFull(text); if (!pb) { toast('That file isn’t a Ledger backup'); return; }
+  const d = pb.d, ni = Object.keys(pb.images).length;
+  if (!confirm(`Replace all current data with this backup file?\n${d.accounts.length} accounts · ${d.tx.length} transactions · ${d.loans.length} loans · ${d.repayments.length} repayments${photoTxt(ni)}`)) return;
+  await applyRestore(d, 'Backup file restored', true, pb.images);
 }
-function downloadBackup() {
-  const blob = new Blob([backupText()], { type: 'application/json' }), a = document.createElement('a');
+async function downloadBackup() {
+  const blob = new Blob([await fileBackupText()], { type: 'application/json' }), a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = `ledger-backup-${todayISO()}.json`; document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); markBackup(); toast('Backup file saved to Downloads');
 }
 function fileCardHTML() {
   let h = `<div class="card" id="fileCard"><h2>Phone backup file</h2>`;
-  if (!FSA) return h + `<div class="muted">Saves a backup file (.json) you can keep in Downloads or send to yourself.</div><button class="btn" id="downloadBk">💾 Save backup file</button><button class="btn light" id="restoreFile">📂 Restore from phone file</button></div>`;
-  if (!fileHandle) h += `<div class="muted" id="fileStatus">Pick a place once (e.g. Documents or Downloads) and the app keeps an up-to-date backup file there after every change.</div><button class="btn" id="setupFile">📁 Set up phone backup file</button>`;
+  if (!FSA) return h + `<div class="muted">Saves a backup file (.json, photos included) you can keep in Downloads or send to yourself.</div><button class="btn" id="downloadBk">💾 Save backup file</button><button class="btn light" id="restoreFile">📂 Restore from phone file</button></div>`;
+  if (!fileHandle) h += `<div class="muted" id="fileStatus">Pick a place once (e.g. Documents or Downloads) and the app keeps an up-to-date backup file there (photos included) after every change.</div><button class="btn" id="setupFile">📁 Set up phone backup file</button>`;
   else {
     const st = FM.status === 'missing' ? '⚠️ File was moved or deleted — set it up again' : fileNeedsPerm() || FM.status === 'perm' ? '⏸️ Needs permission — tap “Allow saving”' : FM.status === 'error' ? '⚠️ Last save failed — ' + esc(FM.error || '') : '✓ Saving after every change';
     h += `<div class="dline"><span>File</span><b id="fileName">${esc(FM.name || fileHandle.name || 'ledger-backup.json')}</b></div>
@@ -827,6 +861,153 @@ function bindBackupStores() {
 }
 function onDataSaved() { queueSnap(); scheduleFileWrite(); }
 
+// ================= photos on loan entries (v8) =================
+// Blobs live in IndexedDB store 'images' (key = image id); entries only hold `images: [ids]`.
+const IMG_MAX = 1280, IMG_Q = 0.75, MAX_IMG = 5;
+const imgURLs = new Map(), imgB64 = new Map(); // object URLs for display; base64 cache for file backups
+let formImgs = null; // the open form's photo field (unsaved picks are discarded on close)
+const getImg = id => idbDo('images', 'readonly', st => st.get(id));
+function delImages(ids) {
+  ids = (ids || []).filter(Boolean); if (!ids.length) return Promise.resolve();
+  ids.forEach(id => { const u = imgURLs.get(id); if (u) URL.revokeObjectURL(u); imgURLs.delete(id); imgB64.delete(id); });
+  return idbDo('images', 'readwrite', st => { ids.forEach(id => st.delete(id)); }).catch(e => console.warn('photo delete failed', e));
+}
+async function imgURL(id) {
+  if (imgURLs.has(id)) return imgURLs.get(id);
+  let rec; try { rec = await getImg(id); } catch (e) { rec = null; }
+  if (!rec || !rec.blob) return null;
+  const u = URL.createObjectURL(rec.blob); imgURLs.set(id, u); return u;
+}
+async function downscale(file) {
+  let src, url;
+  try { src = await createImageBitmap(file); }
+  catch (e) { url = URL.createObjectURL(file); src = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('not an image')); i.src = url; }); }
+  try {
+    const w0 = src.naturalWidth || src.width, h0 = src.naturalHeight || src.height; if (!w0 || !h0) throw new Error('empty image');
+    const k = Math.min(1, IMG_MAX / Math.max(w0, h0)), w = Math.max(1, Math.round(w0 * k)), h = Math.max(1, Math.round(h0 * k));
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const g = cv.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.imageSmoothingQuality = 'high'; g.drawImage(src, 0, 0, w, h);
+    const blob = await new Promise(res => cv.toBlob(res, 'image/jpeg', IMG_Q)); if (!blob) throw new Error('could not encode');
+    return { blob, w, h };
+  } finally { if (src && src.close) src.close(); if (url) URL.revokeObjectURL(url); }
+}
+async function storeImage(file) {
+  const { blob, w, h } = await downscale(file), id = 'img_' + uid();
+  await idbDo('images', 'readwrite', st => st.put({ id, blob, w, h, type: 'image/jpeg', created: Date.now() }, id));
+  return id;
+}
+const blobToDataURL = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
+function dataURLToBlob(u) { const [h, b64] = u.split(','), type = (h.match(/data:([^;]+)/) || [])[1] || 'image/jpeg', bin = atob(b64), a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], { type }); }
+async function putImages(map) {
+  const recs = [];
+  for (const [id, u] of Object.entries(map)) { try { const blob = dataURLToBlob(u); recs.push({ id, blob, type: blob.type, created: Date.now() }); imgB64.set(id, u); } catch (e) {} }
+  for (const r of recs) { const old = imgURLs.get(r.id); if (old) { URL.revokeObjectURL(old); imgURLs.delete(r.id); } }
+  if (recs.length) await idbDo('images', 'readwrite', st => { recs.forEach(r => st.put(r, r.id)); });
+}
+const entryImgs = e => (e && Array.isArray(e.images)) ? e.images : [];
+const loanImgIds = l => [...tranches(l).flatMap(entryImgs), ...repaysOf(l.id).flatMap(entryImgs)];
+const loanImgCount = l => loanImgIds(l).length;
+const allImgIds = d => { const out = []; for (const l of d.loans || []) { out.push(...entryImgs(l)); for (const t of l.more || []) out.push(...entryImgs(t)); } for (const r of d.repayments || []) out.push(...entryImgs(r)); return out; };
+// File backups (phone file + Save backup file) carry the photos as base64; Copy/Share text stays data-only.
+async function fileBackupText() {
+  const images = {};
+  for (const id of new Set(allImgIds(S))) {
+    if (!imgB64.has(id)) { try { const r = await getImg(id); if (r && r.blob) imgB64.set(id, await blobToDataURL(r.blob)); } catch (e) {} }
+    if (imgB64.has(id)) images[id] = imgB64.get(id);
+  }
+  return JSON.stringify({ app: 'emz-tracker', exported: new Date().toISOString(), data: S, images });
+}
+// Thumbnails (blurred while the Owed amounts are hidden; the viewer then stays closed)
+const photosHidden = () => hid('owed');
+function thumbsHTML(ids, ref) {
+  if (!ids || !ids.length) return '';
+  const b = photosHidden();
+  return `<div class="thumbs" data-ref="${esc(ref)}">${ids.map((x, i) => `<button type="button" class="th${b ? ' blur' : ''}" onclick="openViewer('${esc(ref)}',${i})" aria-label="Photo ${i + 1} of ${ids.length}"><img data-img="${esc(x)}" alt=""></button>`).join('')}</div>`;
+}
+function fillThumbs(root) { root.querySelectorAll('img[data-img]').forEach(el => { if (el.src) return; imgURL(el.dataset.img).then(u => { if (u) el.src = u; else el.closest('.th').classList.add('missing'); }); }); }
+function imgFieldHTML() {
+  return `<div class="imgfield"><label>Photos / screenshots (optional, up to ${MAX_IMG})</label><div class="thumbs" id="fThumbs"></div>
+    <label class="btn light addimg" id="addImgBtn">📷 Add photos<input type="file" id="imgInput" accept="image/*" multiple hidden></label></div>`;
+}
+function bindImgField(sh, orig) {
+  const c = { ids: [...(orig || [])], orig: [...(orig || [])], added: [], busy: 0 };
+  const box = sh.querySelector('#fThumbs'), inp = sh.querySelector('#imgInput'), btn = sh.querySelector('#addImgBtn');
+  const draw = () => {
+    const b = photosHidden();
+    box.innerHTML = c.ids.map(id => `<div class="th${b ? ' blur' : ''}"><img data-img="${esc(id)}" alt="Photo"><button type="button" class="thx" data-rm="${esc(id)}" aria-label="Remove photo">✕</button></div>`).join('');
+    fillThumbs(box); btn.hidden = c.ids.length >= MAX_IMG; btn.style.display = c.ids.length >= MAX_IMG ? 'none' : '';
+    box.querySelectorAll('[data-rm]').forEach(x => x.onclick = () => { c.ids = c.ids.filter(i => i !== x.dataset.rm); draw(); });
+  };
+  inp.onchange = async () => {
+    const files = [...inp.files]; inp.value = ''; const room = MAX_IMG - c.ids.length;
+    if (files.length > room) toast(`Up to ${MAX_IMG} photos per entry${room > 0 ? ` — added ${room}` : ''}`);
+    for (const f of files.slice(0, Math.max(0, room))) {
+      c.busy++;
+      try { const id = await storeImage(f); if (formImgs !== c) { delImages([id]); } else { c.ids.push(id); c.added.push(id); draw(); } }
+      catch (e) { toast('Couldn’t read that image'); }
+      finally { c.busy--; }
+    }
+  };
+  c.commit = () => { delImages([...c.orig, ...c.added].filter(x => !c.ids.includes(x))); if (formImgs === c) formImgs = null; return c.ids.length ? c.ids.slice() : undefined; };
+  c.discard = () => { delImages(c.added.filter(x => !c.orig.includes(x))); };
+  formImgs = c; draw(); return c;
+}
+// ref: 'L:<loanId>' (first amount) | 'T:<loanId>:<trancheId>' | 'R:<repaymentId>'
+function ownerOf(ref) {
+  const [k, a, b] = String(ref).split(':');
+  if (k === 'L') return S.loans.find(x => x.id === a) || null;
+  if (k === 'T') { const l = S.loans.find(x => x.id === a); return l && Array.isArray(l.more) ? l.more.find(x => x.id === b) || null : null; }
+  if (k === 'R') return S.repayments.find(x => x.id === a) || null;
+  return null;
+}
+const loanOfRef = ref => { const [k, a] = String(ref).split(':'); if (k === 'R') { const r = S.repayments.find(x => x.id === a); return r ? r.loanId : null; } return a; };
+function closeViewer() { const v = $('#viewer'); if (v) { v.remove(); document.removeEventListener('keydown', viewerKeys); } }
+let viewerKeys = () => {};
+function openViewer(ref, i) {
+  const o = ownerOf(ref); if (!o || !entryImgs(o).length) return;
+  if (photosHidden()) { toast('Photos are hidden — tap the 👁 to show amounts and photos'); return; }
+  closeViewer();
+  const v = document.createElement('div'); v.className = 'viewer'; v.id = 'viewer'; v.setAttribute('role', 'dialog'); v.setAttribute('aria-label', 'Photo viewer');
+  v.innerHTML = `<div class="vbar"><b id="vCount"></b><span><button id="vDel" aria-label="Delete photo">🗑️</button><button id="vClose" aria-label="Close">✕</button></span></div>
+    <div class="vstage" id="vStage"><img id="vImg" alt="Photo"></div><button class="vnav prev" id="vPrev" aria-label="Previous photo">‹</button><button class="vnav next" id="vNext" aria-label="Next photo">›</button>`;
+  document.body.appendChild(v);
+  let k = i;
+  const show = async () => {
+    const ids = entryImgs(o); k = Math.max(0, Math.min(k, ids.length - 1));
+    v.querySelector('#vCount').textContent = `${k + 1} / ${ids.length}`; v.querySelector('#vPrev').hidden = k <= 0; v.querySelector('#vNext').hidden = k >= ids.length - 1;
+    const id = ids[k], u = await imgURL(id); if (entryImgs(o)[k] === id) { const im = v.querySelector('#vImg'); im.src = u || ''; im.dataset.img = id; }
+  };
+  const step = d => { const n = entryImgs(o).length; if (k + d >= 0 && k + d < n) { k += d; show(); } };
+  v.querySelector('#vPrev').onclick = () => step(-1); v.querySelector('#vNext').onclick = () => step(1);
+  v.querySelector('#vClose').onclick = closeViewer;
+  const st = v.querySelector('#vStage'); let x0 = null;
+  st.addEventListener('pointerdown', e => { x0 = e.clientX; });
+  st.addEventListener('pointerup', e => { if (x0 == null) return; const dx = e.clientX - x0; x0 = null; if (Math.abs(dx) > 50) step(dx < 0 ? 1 : -1); });
+  st.addEventListener('pointercancel', () => { x0 = null; });
+  viewerKeys = e => { if (e.key === 'ArrowRight') step(1); else if (e.key === 'ArrowLeft') step(-1); else if (e.key === 'Escape') closeViewer(); };
+  document.addEventListener('keydown', viewerKeys);
+  v.querySelector('#vDel').onclick = () => {
+    if (!confirm('Delete this photo? This can’t be undone.')) return;
+    const id = entryImgs(o)[k]; o.images = entryImgs(o).filter(x => x !== id); if (!o.images.length) delete o.images;
+    delImages([id]); save(); render();
+    const lid = loanOfRef(ref); if ($('#modal') && lid) openLoan(lid);
+    toast('Photo deleted');
+    if (!entryImgs(o).length) closeViewer(); else show();
+  };
+  show();
+}
+// Tidy up photos nothing points to any more (e.g. app closed mid-form). Photos still referenced by an
+// on-phone auto backup are kept, so restoring one of those still shows its photos.
+async function gcImages() {
+  try {
+    const keep = new Set(allImgIds(S)); for (const s of SNAPS) { try { allImgIds(JSON.parse(s.data)).forEach(x => keep.add(x)); } catch (e) {} }
+    if (formImgs) formImgs.ids.forEach(x => keep.add(x));
+    const keys = await idbDo('images', 'readonly', st => st.getAllKeys()) || [];
+    const young = k => { const t = parseInt(String(k).slice(4, -5), 36); return isFinite(t) && Date.now() - t < 3600000; }; // added in the last hour: maybe a form in progress
+    const gone = keys.filter(k => !keep.has(k) && !young(k)); if (gone.length) await delImages(gone);
+  } catch (e) {}
+}
+
 // ---- startup (v7): paint first from localStorage; everything else after first paint ----
 render();
 window.addEventListener('resize', fitBig);
@@ -835,6 +1016,7 @@ const afterPaint = (fn, idle) => requestAnimationFrame(() => setTimeout(() => (i
 // The recovery offer only matters when storage is empty (then it runs right after paint); otherwise snapshots load when idle.
 // It runs on snapChain so a save made before it finishes still compares against the newest snapshot.
 afterPaint(() => { snapChain = snapChain.then(checkRecovery).catch(() => {}); }, !freshStart);
+afterPaint(() => { snapChain = snapChain.then(gcImages).catch(() => {}); }, true);
 afterPaint(() => { if (FSA) kvGet('fileHandle').then(h => initFileBackup(h)).catch(() => {}); askPersist(); }, true);
 // ---- updates: a new version waits until you tap the toast (never swaps mid-session) ----
 let swReg = null, userUpdate = false;
