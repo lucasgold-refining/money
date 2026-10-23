@@ -242,6 +242,21 @@ input,select{font-size:1rem;padding:10px var(--s3);min-height:48px;border-radius
 .sumgrid small{font-size:.75rem}
 .sumgrid b{font-size:.9375rem;font-weight:700}
 .th{width:56px;height:56px}
+/* v10: kept-separate section + switches */
+.sechead{display:flex;align-items:baseline;gap:6px;margin:var(--s5) 0 var(--s2)}
+.sechead span{font-weight:600;text-transform:none;letter-spacing:0}
+.subhead{margin-top:var(--s3)}
+#sepCard .ico,#loansSep .ico{background:var(--amberbg);color:var(--amber)}
+.loan.sep .ico.ava{background:var(--amberbg);color:var(--amber)}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);margin:var(--s3) 0 0;font-size:.9375rem;font-weight:600;color:var(--text);min-height:44px;cursor:pointer}
+.sw > span{display:flex;flex-direction:column;min-width:0}
+.sw small{font-weight:500;font-size:.75rem}
+.sw input{appearance:none;-webkit-appearance:none;flex:none;width:46px;height:28px;min-height:0;padding:0;margin:0;border:0;border-radius:99px;background:var(--input);position:relative;cursor:pointer;transition:background .15s}
+.sw input::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(58,31,51,.3);transition:transform .15s}
+.sw input:checked{background:var(--plum)}
+.sw input:checked::after{transform:translateX(18px)}
+.sw input:focus-visible{outline:2px solid var(--rosedeep);outline-offset:2px}
+.setacct .sw{margin-top:var(--s1);min-height:44px;font-size:.875rem}
 .accpanel .item .acts button{min-width:36px;min-height:36px;font-size:.9375rem}
 .row2 .btn{padding:var(--s3) var(--s2);line-height:1.25}
 .item .body .muted{line-height:1.35}
@@ -261,7 +276,7 @@ input,select{font-size:1rem;padding:10px var(--s3);min-height:48px;border-radius
 <button class="updToast" id="updToast" hidden>New version ready · Tap to update</button>
 <script>
 'use strict';
-const APP_V = 9;
+const APP_V = 10;
 const KEY = 'emz-money-v1';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function defaultState() {
@@ -282,9 +297,21 @@ function defaultState() {
 function valid(d) { return d && Array.isArray(d.accounts) && Array.isArray(d.tx) && Array.isArray(d.loans) && Array.isArray(d.repayments); }
 let S;
 let freshStart = false; // true when localStorage had no data on this open (new install or cleared)
+// v10: "Include in net worth" flags on accounts and loans. Runs on every load / restore but only fills in a
+// flag that is missing, so a value the user has set is never overwritten (old backups get the same defaults).
+const SEP_ACCTS = ['bpi timmy', 'bpi ethan']; // accounts kept separate by default
+const normName = n => String(n || '').trim().replace(/\s+/g, ' ').toLowerCase();
+function migrateData(d) {
+  let changed = false;
+  for (const a of d.accounts || []) if (typeof a.inNetWorth !== 'boolean') { a.inNetWorth = !SEP_ACCTS.includes(normName(a.name)); changed = true; }
+  // loans financed by someone else are saved as "Name (Other person)" → kept separate by default
+  for (const l of d.loans || []) if (typeof l.inNetWorth !== 'boolean') { l.inNetWorth = !/\(.+\)/.test(String(l.borrower || '')); changed = true; }
+  return changed;
+}
 function load() {
   try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) { S = null; }
-  if (!valid(S)) { S = defaultState(); freshStart = true; } // not written until the first real change, so a recovery offer survives “Not now”
+  if (!valid(S)) { S = defaultState(); freshStart = true; migrateData(S); return; } // not written until the first real change, so a recovery offer survives “Not now”
+  if (migrateData(S)) localStorage.setItem(KEY, JSON.stringify(S)); // one-time: persist the filled-in flags
 }
 // Every data change goes through save(): localStorage, then an on-phone snapshot (IndexedDB) and the phone backup file.
 function save() { localStorage.setItem(KEY, JSON.stringify(S)); freshStart = false; if (typeof onDataSaved === 'function') onDataSaved(); }
@@ -326,13 +353,14 @@ const ICONS = {
   receipt: SV('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
   in: SV('<path d="M17 7 7 17M7 9.5V17h7.5"/>'),
   out: SV('<path d="M7 17 17 7M9.5 7H17v7.5"/>'),
-  xfer: SV('<path d="M4 8.5h15l-3.5-3.5M20 15.5H5l3.5 3.5"/>')
+  xfer: SV('<path d="M4 8.5h15l-3.5-3.5M20 15.5H5l3.5 3.5"/>'),
+  layers: SV('<path d="m12 3 9 4.5-9 4.5-9-4.5z"/><path d="m3 12 9 4.5 9-4.5M3 16.5 12 21l9-4.5"/>')
 };
 const ico = (k, cls) => `<span class="ico${cls ? ' ' + cls : ''}">${ICONS[k]}</span>`;
 const initial = n => esc((String(n || '?').trim()[0] || '?').toUpperCase());
 const EYE_OPEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-7-11-7a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
-const privKeys = () => ['total', ...S.accounts.map(a => 'a:' + a.id), 'owed', 'net', 'd:bank', 'd:lent', 'd:cash', 'd:exp'];
+const privKeys = () => ['total', ...S.accounts.map(a => 'a:' + a.id), 'owed', 'net', 'sep', 'sepowed', 'd:bank', 'd:lent', 'd:cash', 'd:exp'];
 const hid = k => !!P.h[k];
 const allHidden = () => privKeys().every(hid);
 // An amount: shows ₱ •••••• when its card is hidden (cls = extra classes when shown, e.g. 'neg').
@@ -360,7 +388,9 @@ function balanceC(id) {
   return c;
 }
 const balance = id => balanceC(id) / 100;
-const totalBalance = () => S.accounts.reduce((s, a) => s + balanceC(a.id), 0) / 100;
+const inNW = x => x.inNetWorth !== false; // missing flag = included
+const totalBalance = () => S.accounts.filter(inNW).reduce((s, a) => s + balanceC(a.id), 0) / 100; // included accounts only
+const sepBalance = () => S.accounts.filter(a => !inNW(a)).reduce((s, a) => s + balanceC(a.id), 0) / 100;
 const repaysOf = id => S.repayments.filter(r => r.loanId === id);
 function loanInfo(l) {
   const lentC = tranches(l).reduce((x, t) => x + cents(t.amount), 0);
@@ -369,10 +399,10 @@ function loanInfo(l) {
   const status = outC === 0 ? 'Paid' : 'Open'; // no overdue tracking
   return { lent: lentC / 100, repaid: repaidC / 100, out: outC / 100, status };
 }
-function loanTotals() {
-  let outC = 0, open = 0;
-  for (const l of S.loans) { const i = loanInfo(l); outC += cents(i.out); if (i.status !== 'Paid') open++; }
-  return { out: outC / 100, open };
+function loanTotals(sep) { // default: loans counted in net worth; sep=true: loans kept separate
+  let outC = 0, open = 0, n = 0;
+  for (const l of S.loans) { if (inNW(l) === !!sep) continue; const i = loanInfo(l); n++; outC += cents(i.out); if (i.status !== 'Paid') open++; }
+  return { out: outC / 100, open, n };
 }
 function daysSinceBackup() { return S.lastBackup ? Math.floor((Date.now() - S.lastBackup) / 86400000) : null; }
 const hasData = () => S.tx.length || S.loans.length || S.repayments.length || S.accounts.some(a => cents(a.opening));
@@ -412,19 +442,34 @@ function homeHTML() {
   if (fileNeedsPerm()) h += `<button class="warn" id="fileBanner" onclick="grantFilePerm()">📁 Tap to keep saving backups to your phone</button>`;
   if (hasData() && (ds === null || ds >= 14))
     h += `<button class="warn" id="backupNag" onclick="go('set')">💾 Auto backups stay on this phone only. ${ds === null ? 'Share a copy off the phone' : `Last copy off the phone was ${ds} days ago — share a new one`} (e.g. Messenger or email). Tap to back up.</button>`;
-  // v5 order: Net worth (hero) · Total balance · accounts · Owed to me
+  // order: Net worth (hero) · Total balance · included accounts · Owed to me · [Kept separate: subtotal · accounts · owed]
   h += `<div class="card hero" id="netCard"><div class="eyecard">${ico('wallet')}<div class="grow"><div class="lbl">Net worth <span class="muted">(balance + owed)</span></div><div class="big" id="netWorth">${amt(tb + lt.out, 'net', tb + lt.out < 0 ? 'neg' : '')}</div></div>${eyeBtn('net', 'net worth')}</div></div>`;
   h += `<div class="card" id="totalCard"><div class="eyecard">${ico('coins')}<div class="grow"><div class="lbl">Total balance</div><div class="mid" id="totalBal">${amt(tb, 'total', tb < 0 ? 'neg' : '')}</div></div>${eyeBtn('total', 'total balance')}</div></div>`;
-  for (const a of S.accounts) {
-    const b = balance(a.id);
-    const op = openAccts.has(a.id);
-    h += `<div class="acctbox${op ? ' open' : ''}" data-box="${esc(a.id)}"><div class="acct" role="button" tabindex="0" data-acct="${esc(a.id)}" aria-expanded="${op}" onclick="toggleAcct('${esc(a.id)}')">${ico(isCash(a) ? 'cash' : 'bank')}<span class="nm">${esc(a.name)}</span><span class="amtwrap"><b>${amt(b, 'a:' + a.id, b < 0 ? 'neg' : '')}</b><span class="chev" aria-expanded="${op}" aria-label="${op ? 'Collapse' : 'Expand'} ${esc(a.name)}">▾</span>${eyeBtn('a:' + a.id, a.name)}</span></div>${op ? acctPanel(a.id) : ''}</div>`;
-  }
+  for (const a of S.accounts.filter(inNW)) h += acctBoxHTML(a);
   h += `<div class="card owed" role="button" tabindex="0" id="owedCard" onclick="go('loans')"><div class="eyecard">${ico('owed')}<div class="grow">
     <div class="lbl">Owed to me</div><div class="mid" id="owedTotal">${amt(lt.out, 'owed')}</div>
     <div class="muted" id="owedMeta">${lt.open} open loan${lt.open === 1 ? '' : 's'}</div></div>${eyeBtn('owed', 'owed to me')}</div></div>`;
+  // v10: accounts / loans that are not part of net worth
+  const sepA = S.accounts.filter(a => !inNW(a)), ls = loanTotals(true);
+  if (sepA.length || ls.n) {
+    h += `<h3 class="sechead" id="sepHead">Kept separate <span>· not in net worth</span></h3>`;
+    if (sepA.length) {
+      const sb = sepBalance();
+      h += `<div class="card" id="sepCard"><div class="eyecard">${ico('layers')}<div class="grow"><div class="lbl">Kept separate balance</div><div class="mid" id="sepTotal">${amt(sb, 'sep', sb < 0 ? 'neg' : '')}</div>
+        <div class="muted" id="sepMeta">${sepA.length} account${sepA.length === 1 ? '' : 's'}</div></div>${eyeBtn('sep', 'kept separate balance')}</div></div>`;
+      for (const a of sepA) h += acctBoxHTML(a);
+    }
+    if (ls.n) h += `<div class="card owed" role="button" tabindex="0" id="sepOwedCard" onclick="go('loans')"><div class="eyecard">${ico('owed')}<div class="grow">
+      <div class="lbl">Owed (kept separate)</div><div class="mid" id="sepOwedTotal">${amt(ls.out, 'sepowed')}</div>
+      <div class="muted" id="sepOwedMeta">${ls.open} open loan${ls.open === 1 ? '' : 's'}</div></div>${eyeBtn('sepowed', 'owed kept separate')}</div></div>`;
+  }
   h += `<div class="row2"><button class="btn" onclick="go('add')">➕ Add money</button><button class="btn gold" onclick="lendForm()">🤝 Lend money</button></div>`;
   return h;
+}
+function acctBoxHTML(a) {
+    const b = balance(a.id);
+    const op = openAccts.has(a.id);
+    return `<div class="acctbox${op ? ' open' : ''}" data-box="${esc(a.id)}"><div class="acct" role="button" tabindex="0" data-acct="${esc(a.id)}" aria-expanded="${op}" onclick="toggleAcct('${esc(a.id)}')">${ico(isCash(a) ? 'cash' : 'bank')}<span class="nm">${esc(a.name)}</span><span class="amtwrap"><b>${amt(b, 'a:' + a.id, b < 0 ? 'neg' : '')}</b><span class="chev" aria-expanded="${op}" aria-label="${op ? 'Collapse' : 'Expand'} ${esc(a.name)}">▾</span>${eyeBtn('a:' + a.id, a.name)}</span></div>${op ? acctPanel(a.id) : ''}</div>`;
 }
 
 // ---------- modal ----------
@@ -555,7 +600,8 @@ function openAccount(id) {
 const isCash = a => a.type === 'cash' || /cash/i.test(a.name || ''); // also catches a manually added "Cash on hand"
 function dashHTML() {
   let bankC = 0, cashC = 0, expC = 0;
-  for (const a of S.accounts) { if (isCash(a)) cashC += balanceC(a.id); else bankC += balanceC(a.id); }
+  const inA = S.accounts.filter(inNW); // v10: accounts kept separate are left out (expenses still count every account)
+  for (const a of inA) { if (isCash(a)) cashC += balanceC(a.id); else bankC += balanceC(a.id); }
   const m = todayISO().slice(0, 7);
   for (const t of S.tx) if (t.type === 'out' && (t.date || '').slice(0, 7) === m) expC += cents(t.amount);
   const lent = loanTotals();
@@ -563,9 +609,9 @@ function dashHTML() {
   const monthName = new Date(y, mo - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   const DI = { dBank: 'bank', dLent: 'lent', dCash: 'cash', dExp: 'receipt' };
   const card = (id, key, label, v, sub, cls) => `<div class="card dcard" id="${id}"><div class="eyecard">${ico(DI[id])}<div class="grow"><div class="lbl">${label}</div><div class="big" id="${id}Val">${amt(v, key, cls)}</div>${sub ? `<div class="muted">${sub}</div>` : ''}</div>${eyeBtn(key, label.toLowerCase())}</div></div>`;
-  return card('dBank', 'd:bank', 'Money in accounts', bankC / 100, `${S.accounts.filter(a => !isCash(a)).length} bank account${S.accounts.filter(a => !isCash(a)).length === 1 ? '' : 's'}`, bankC < 0 ? 'neg' : '')
+  return card('dBank', 'd:bank', 'Money in accounts', bankC / 100, `${inA.filter(a => !isCash(a)).length} bank account${inA.filter(a => !isCash(a)).length === 1 ? '' : 's'}${S.accounts.length > inA.length ? ` · ${S.accounts.length - inA.length} separate` : ''}`, bankC < 0 ? 'neg' : '')
     + card('dLent', 'd:lent', 'Money lent', lent.out, `${lent.open} open loan${lent.open === 1 ? '' : 's'}`)
-    + card('dCash', 'd:cash', 'Cash on hand', cashC / 100, S.accounts.some(isCash) ? '' : 'No cash account yet — add one in Settings', cashC < 0 ? 'neg' : '')
+    + card('dCash', 'd:cash', 'Cash on hand', cashC / 100, inA.some(isCash) ? '' : S.accounts.some(isCash) ? 'Cash account is kept separate' : 'No cash account yet — add one in Settings', cashC < 0 ? 'neg' : '')
     + card('dExp', 'd:exp', 'Expenses this month', expC / 100, `${monthName} · money out only`, '');
 }
 
@@ -578,12 +624,18 @@ function loansHTML() {
     <button class="btn gold" id="lendBtn" onclick="lendForm()" style="margin:0 0 12px">🤝 Lend money</button>`;
   if (!S.loans.length) return h + '<div class="empty">No loans yet.</div>';
   const order = { Open: 0, Paid: 1 };
-  const list = S.loans.map(l => ({ l, i: loanInfo(l) })).sort((a, b) => order[a.i.status] - order[b.i.status] || byNewest(a.l, b.l));
-  let paidHdr = false;
+  const list = S.loans.map(l => ({ l, i: loanInfo(l) })).sort((a, b) => (inNW(b.l) - inNW(a.l)) || order[a.i.status] - order[b.i.status] || byNewest(a.l, b.l));
+  let paidHdr = false, sepHdr = false;
   for (const { l, i } of list) {
-    if (i.status === 'Paid' && !paidHdr) { h += '<h3>Paid</h3>'; paidHdr = true; }
+    if (!inNW(l) && !sepHdr) { // v10: loans kept out of net worth, with their own subtotal
+      const ls = loanTotals(true); sepHdr = true; paidHdr = false;
+      h += `<h3 class="sechead" id="loansSepHead">Kept separate <span>· not in net worth</span></h3>
+        <div class="card" id="loansSep"><div class="eyecard">${ico('owed')}<div class="grow"><div class="lbl">Owed (kept separate)</div><div class="mid" id="loansSepOwed">${amt(ls.out, 'sepowed')}</div>
+        <div class="muted">${ls.open} open loan${ls.open === 1 ? '' : 's'}</div></div>${eyeBtn('sepowed', 'owed kept separate')}</div></div>`;
+    }
+    if (i.status === 'Paid' && !paidHdr) { h += sepHdr ? '<h3 class="subhead">Paid · kept separate</h3>' : '<h3>Paid</h3>'; paidHdr = true; }
     const nMore = tranches(l).length - 1;
-    h += `<button class="loan ${i.status.toLowerCase()}" data-loan="${l.id}" onclick="openLoan('${l.id}')">
+    h += `<button class="loan ${i.status.toLowerCase()}${inNW(l) ? '' : ' sep'}" data-loan="${l.id}" onclick="openLoan('${l.id}')">
       <div class="top"><span class="ico ava" aria-hidden="true">${initial(l.borrower)}</span><span class="whobox"><span class="who">${esc(l.borrower)}</span>
       <span class="muted lgiven">Given ${fmtDate(l.date)}${nMore ? ` · +${nMore} more` : ''}${loanImgCount(l) ? ` · <span class="clip" aria-label="${loanImgCount(l)} photos">📎 ${loanImgCount(l)}</span>` : ''}</span></span><span class="badge ${i.status}">${i.status}</span></div>
       <div class="lout"><span>Outstanding</span><b>${amt(i.out, 'owed')}</b></div>
@@ -602,10 +654,13 @@ function lendForm(id) {
     <label>From account</label>${chipsHTML('lAcct', l ? selOf(l.account) : (S.accounts[0] || {}).id, null, 'None (already given / not from an account)')}
     <label for="lDate">Date lent</label><input id="lDate" type="date" value="${esc(l ? l.date : todayISO())}">
     <label for="lNote">Note (optional)</label><input id="lNote" value="${esc(l ? l.note || '' : '')}">
+    <label class="sw" for="lNw"><span>Include in net worth<small class="muted">Off for loans financed by someone else</small></span><input type="checkbox" id="lNw" role="switch" ${!l || inNW(l) ? 'checked' : ''}></label>
     ${imgFieldHTML()}
     <button class="btn gold" id="saveLoan">${l ? 'Save changes' : 'Save loan'}</button>
     ${l ? '<button class="btn light" id="cancelLoan">Cancel</button>' : ''}`);
   bindChips(sh, 'lAcct'); const imf = bindImgField(sh, l && l.images);
+  const nw = sh.querySelector('#lNw'); let nwTouched = !!l; nw.onchange = () => { nwTouched = true; };
+  sh.querySelector('#lBor').addEventListener('input', e => { if (!nwTouched) nw.checked = !/\(.+\)/.test(e.target.value); }); // "Name (Other)" → kept separate
   if (l) sh.querySelector('#cancelLoan').onclick = () => openLoan(l.id);
   sh.querySelector('#saveLoan').onclick = () => {
     const borrower = sh.querySelector('#lBor').value.trim(), amount = parseAmt(sh.querySelector('#lAmt').value), account = chipAcct(sh, 'lAcct');
@@ -614,7 +669,7 @@ function lendForm(id) {
     if (account === undefined) { toast('Pick an account or None'); return; }
     if (imf.busy) { toast('Still adding photos…'); return; }
     if (l && cents(amount) + moreC < cents(loanInfo(l).repaid)) { toast(`Already repaid ${amtT(loanInfo(l).repaid, 'owed')} — total lent can’t be less`); return; }
-    const rec = { borrower, amount, account, date: sh.querySelector('#lDate').value || todayISO(), note: sh.querySelector('#lNote').value.trim(), images: imf.commit() };
+    const rec = { borrower, amount, account, date: sh.querySelector('#lDate').value || todayISO(), note: sh.querySelector('#lNote').value.trim(), inNetWorth: nw.checked, images: imf.commit() };
     if (l) { Object.assign(l, rec); save(); render(); openLoan(l.id); toast('Saved'); }
     else { S.loans.push(Object.assign({ id: uid(), created: Date.now(), more: [] }, rec)); save(); closeModal(); go('loans'); toast(`Lent ${amtT(amount, 'owed')} to ${borrower}`); }
   };
@@ -659,6 +714,7 @@ function openLoan(id) {
     <div class="lout detail${i.status === 'Paid' ? ' paid' : ''}"><span>Outstanding</span><b id="loanOut">${amt(i.out, 'owed')}</b></div>
     <div class="sumgrid"><div><small>Lent</small><b id="loanLent">${amt(i.lent, 'owed')}</b></div><div><small>Repaid</small><b>${amt(i.repaid, 'owed')}</b></div></div>
     <div class="lbl" style="margin-top:12px;font-size:.9375rem;color:var(--text)" id="loanGiven">Given ${fmtDate(l.date)}</div><div class="muted" id="loanFrom">${esc(fromTxt(l.account))}${l.note ? '<br>' + esc(l.note) : ''}</div>
+    <label class="sw" for="loanNw"><span>Include in net worth<small class="muted">${inNW(l) ? 'Counted in Net worth and Owed to me' : 'Kept separate — not in Net worth'}</small></span><input type="checkbox" id="loanNw" role="switch" ${inNW(l) ? 'checked' : ''}></label>
     ${i.status !== 'Paid' ? '<button class="btn green" id="repayBtn">💵 Record repayment</button>' : ''}
     <button class="btn light" id="moreBtn">➕ Add more to this loan</button>
     <h3>Lent</h3><div id="trancheList">`;
@@ -672,6 +728,7 @@ function openLoan(id) {
   const sh = openModal(h); fillThumbs(sh);
   const rb = sh.querySelector('#repayBtn'); if (rb) rb.onclick = () => repayForm(id);
   sh.querySelector('#moreBtn').onclick = () => trancheForm(id);
+  sh.querySelector('#loanNw').onchange = e => { l.inNetWorth = e.target.checked; save(); render(); openLoan(id); toast(l.inNetWorth ? 'Loan counted in net worth' : 'Loan kept separate from net worth'); };
   sh.querySelector('#editLoan').onclick = () => lendForm(id);
   sh.querySelector('#delLoan').onclick = () => {
     if (!confirm(`Delete this loan to ${l.borrower}${reps.length ? ` and its ${reps.length} repayment${reps.length > 1 ? 's' : ''}` : ''}?`)) return;
@@ -718,7 +775,8 @@ function setHTML() {
   for (const a of S.accounts) h += `<div class="setacct" data-id="${esc(a.id)}"><div class="r">
       <div><label>Name</label><input class="aname" value="${esc(a.name)}"></div>
       <div><label>Opening ₱</label><input class="aopen" ${hid('a:' + a.id) ? 'type="password" ' : ''}inputmode="decimal" value="${(cents(a.opening) / 100).toFixed(2)}"></div>
-      <button class="iconbtn adel" aria-label="Delete account">🗑️</button></div></div>`;
+      <button class="iconbtn adel" aria-label="Delete account">🗑️</button></div>
+      <label class="sw"><span>Include in net worth</span><input type="checkbox" class="anw" role="switch" ${inNW(a) ? 'checked' : ''} aria-label="Include ${esc(a.name)} in net worth"></label></div>`;
   h += `</div><button class="btn light" id="addAcct">＋ Add account</button></div>
     <div class="card"><h2>Backup</h2><div class="muted" id="lastBackup">${S.lastBackup ? `Last copy off the phone: ${fmtDate(new Date(S.lastBackup - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10))} (${ds === 0 ? 'today' : ds + ' day' + (ds === 1 ? '' : 's') + ' ago'})` : 'No copy off the phone yet'}</div>
     <div class="muted" style="margin-top:4px">Auto backups below are kept on this phone only. Copy or share a backup to yourself (e.g. Messenger, email) now and then.</div>
@@ -737,6 +795,7 @@ function bindSettings() {
     const a = acct(row.dataset.id);
     row.querySelector('.aname').onchange = e => { const v = e.target.value.trim(); if (!v) { e.target.value = a.name; toast('Name can’t be empty'); return; } a.name = v; save(); toast('Renamed'); };
     row.querySelector('.aopen').onchange = e => { const v = parseAmt(e.target.value || 0); if (isNaN(v)) { e.target.value = (cents(a.opening) / 100).toFixed(2); toast('Not a valid amount'); return; } a.opening = v; e.target.value = v.toFixed(2); save(); toast('Opening balance saved'); };
+    row.querySelector('.anw').onchange = e => { a.inNetWorth = e.target.checked; save(); toast(a.inNetWorth ? `${a.name} counted in net worth` : `${a.name} kept separate from net worth`); };
     row.querySelector('.adel').onclick = () => {
       const used = S.tx.filter(t => t.account === a.id || t.to === a.id).length + S.loans.reduce((n, l) => n + tranches(l).filter(t => t.account === a.id).length, 0) + S.repayments.filter(r => r.account === a.id).length;
       if (S.accounts.length <= 1) { toast('You need at least one account'); return; }
@@ -747,7 +806,7 @@ function bindSettings() {
   });
   $('#addAcct').onclick = () => {
     const name = (prompt('New account name', 'BPI ') || '').trim(); if (!name) return;
-    const nid = uid(), wasAll = allHidden(); S.accounts.push({ id: nid, name, type: /cash/i.test(name) ? 'cash' : 'bank', opening: 0 }); if (wasAll) { P.h['a:' + nid] = true; savePriv(); } save(); render(); toast('Account added');
+    const nid = uid(), wasAll = allHidden(); S.accounts.push({ id: nid, name, type: /cash/i.test(name) ? 'cash' : 'bank', opening: 0, inNetWorth: true }); if (wasAll) { P.h['a:' + nid] = true; savePriv(); } save(); render(); toast('Account added');
   };
   $('#copyBk').onclick = async () => { if (await copyText(backupText())) { markBackup(); toast('Backup copied — paste it somewhere safe'); } };
   $('#shareBk').onclick = async () => {
@@ -781,7 +840,8 @@ function parseBackupFull(txt) {
   let o; try { o = JSON.parse(String(txt).trim()); } catch (e) { return null; }
   let d = o, images = {};
   if (o && o.data) { d = o.data; if (o.images && typeof o.images === 'object') for (const [k, v] of Object.entries(o.images)) if (typeof v === 'string' && v.startsWith('data:image/')) images[k] = v; }
-  return valid(d) ? { d, images } : null;
+  if (!valid(d)) return null;
+  migrateData(d); return { d, images };
 }
 const photoTxt = n => n ? ` · ${n} photo${n === 1 ? '' : 's'}` : '';
 function restoreForm() {
@@ -841,7 +901,7 @@ const kvDel = k => idbDo('kv', 'readwrite', st => st.delete(k));
 let SNAPS = []; // newest first: {ts, reason, accounts, loans, totalC, data}
 let snapChain = Promise.resolve(), lastSnapCmp = null, lastSnapTs = 0;
 const cmpOf = json => { try { const d = JSON.parse(json); delete d.lastBackup; return JSON.stringify(d); } catch (e) { return json; } };
-function summaryOf(d) { const keep = S; S = d; try { return { accounts: d.accounts.length, loans: d.loans.length, totalC: S.accounts.reduce((x, a) => x + balanceC(a.id), 0) }; } finally { S = keep; } }
+function summaryOf(d) { const keep = S; S = d; try { return { accounts: d.accounts.length, loans: d.loans.length, totalC: S.accounts.filter(inNW).reduce((x, a) => x + balanceC(a.id), 0) }; } finally { S = keep; } }
 // Queue a snapshot of the current data (skipped when nothing changed except lastBackup, unless force).
 function queueSnap(reason, force) {
   const json = JSON.stringify(S), sum = summaryOf(JSON.parse(json));
