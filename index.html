@@ -12,24 +12,23 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="preload" href="fonts/nunito-400-700.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="fonts/playfair-display-600-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/manrope-400-800.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-/* v6 fonts: self-hosted OFL fonts (see fonts/OFL-*.txt). Playfair has no ₱ glyph, so ₱ falls back to Nunito. */
-@font-face{font-family:'Nunito';src:url('fonts/nunito-400-700.woff2') format('woff2');font-weight:400 700;font-style:normal;font-display:swap}
-@font-face{font-family:'Playfair Display';src:url('fonts/playfair-display-600-700.woff2') format('woff2');font-weight:600 700;font-style:normal;font-display:swap}
+/* v9 fonts (self-hosted, OFL — see fonts/OFL-*.txt): Manrope for the whole UI and every amount (has ₱, tabular figures);
+   Playfair Display only for the word "Ledger" in the header (subset to those 5 letters, ~2 KB). */
+@font-face{font-family:'Manrope';src:url('fonts/manrope-400-800.woff2') format('woff2');font-weight:400 800;font-style:normal;font-display:swap}
+@font-face{font-family:'Ledger Title';src:url('fonts/playfair-title.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}
 /* v6 palette: plum + blush + rose gold (all text pairs checked for WCAG AA ≥ 4.5:1) */
 :root{--plum:#5B2A4E;--rose:#D4A5A5;--rosedeep:#C9897B;--bg:#FFF5F7;--card:#fff;--text:#3A1F33;--muted:#7A5468;--red:#B3364A;--redbg:#FDECEF;--green:#1b7f3b;--greenbg:#e8f5e9;--line:#F1DDE4;--amber:#8C3A5A;--amberbg:#FBE3EC;--soft:#F8E6EC;--label:#4A2F42;--xfer:#6A3FA0;--input:#E3C6D1;--shadow:rgba(91,42,78,.10)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;background:var(--bg);color:var(--text);font:17px/1.4 "Nunito",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+html,body{margin:0;background:var(--bg);color:var(--text);font:1rem/1.45 "Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-variant-numeric:lining-nums tabular-nums}
 button,input,select,textarea{font-family:inherit}
-.serif,header h1,.card h2,.modal h2,h3,.lbl,.big,.mid{font-family:"Playfair Display","Nunito",Georgia,serif}
 .big,.mid,.amtc,.acct b,.trio b,.sumgrid b,.loan .nums b,.dline b{font-variant-numeric:lining-nums tabular-nums}
 .btn.sm{display:inline-block;width:auto;min-height:44px;padding:8px 12px;margin:0;font-size:14px}
 header{background:var(--plum);color:#fff;padding:calc(env(safe-area-inset-top) + 8px) 14px 8px 16px;position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:62px}
 header h1{margin:0;font-size:20px;font-weight:700}
 header h1{font-size:26px;font-weight:700;letter-spacing:.6px;display:flex;align-items:baseline;gap:8px}
-header h1 .peso{color:var(--rose);font-family:'Nunito',sans-serif;font-weight:700;font-size:22px}
+header h1 .peso{color:var(--rose);font-family:'Manrope',sans-serif;font-weight:700;font-size:1.125rem}
 main{padding:14px 14px calc(96px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
 nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:5}
 nav button{flex:1;min-width:0;border:0;background:none;padding:10px 2px 12px;font-size:12px;white-space:nowrap;color:var(--muted);min-height:64px;display:flex;flex-direction:column;align-items:center;gap:2px}
@@ -119,7 +118,7 @@ textarea{min-height:140px;font-size:13px;font-family:ui-monospace,Menlo,monospac
 .viewer .vnav{position:absolute;top:50%;transform:translateY(-50%);border:0;background:rgba(255,255,255,.16);color:#fff;width:48px;height:64px;font-size:34px;border-radius:12px}
 .viewer .vnav.prev{left:6px}.viewer .vnav.next{right:6px}
 .viewer .vnav[hidden]{display:none}
-.updToast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--plum);color:#fff;border:1px solid var(--rose);padding:10px 16px;border-radius:999px;font:700 14px 'Nunito',sans-serif;z-index:41;box-shadow:0 4px 14px rgba(58,31,51,.25);white-space:nowrap}
+.updToast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--plum);color:#fff;border:1px solid var(--rose);padding:10px 16px;border-radius:999px;font:700 .875rem 'Manrope',sans-serif;z-index:41;box-shadow:0 4px 14px rgba(58,31,51,.25);white-space:nowrap}
 .updToast[hidden]{display:none}
 .empty{text-align:center;color:var(--muted);padding:20px 10px}
 .hidden{display:none!important}
@@ -148,6 +147,104 @@ header .eye[aria-pressed=true]{background:var(--rose);color:var(--plum)}
 .dcard .big{font-size:34px}
 .chip.none{border-style:dashed;font-weight:600}
 h3{font-size:15px;margin:18px 0 4px;color:var(--label)}
+
+/* ===== v9 layout: compact, proportional cards tuned for Galaxy S25/S26 Ultra (412 CSS px) — 4/8 px spacing, rem type ===== */
+:root{--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--r:14px;--rs:10px;--pad:12px;--ico:36px;--eye:40px;--sh:0 1px 2px rgba(91,42,78,.08),0 2px 8px rgba(91,42,78,.05)}
+header{min-height:56px;padding:calc(env(safe-area-inset-top) + var(--s2)) var(--s3) var(--s2) var(--s4)}
+header h1{font-family:'Ledger Title','Manrope',Georgia,serif;font-size:1.5rem;font-weight:700;letter-spacing:.4px;gap:6px}
+main{padding:var(--s3) var(--s3) calc(88px + env(safe-area-inset-bottom))}
+nav button{min-height:58px;padding:8px 2px 10px;font-size:.6875rem;gap:3px}
+nav button .ic{font-size:1.25rem}
+.card,.acctbox,.acct,.loan{border-radius:var(--r);box-shadow:var(--sh);margin-bottom:var(--s2)}
+.card{padding:var(--pad)}
+.card h2{font-size:1.0625rem;font-weight:800;margin:0 0 var(--s2)}
+h3{font-size:.8125rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:var(--s4) 0 var(--s1)}
+.lbl{font-size:.8125rem;font-weight:600;color:var(--muted);line-height:1.3}
+.lbl .muted{font-size:inherit;font-weight:500}
+.muted{font-size:.8125rem}
+.big{font-size:clamp(1.5rem,1.05rem + 1.9vw,1.875rem);font-weight:800;letter-spacing:-.02em;line-height:1.15}
+.hero .big{font-size:clamp(1.75rem,1.2rem + 2.3vw,2.125rem)}
+.dcard .big{font-size:clamp(1.375rem,1rem + 1.6vw,1.625rem)}
+.mid{font-size:clamp(1.125rem,.95rem + .8vw,1.3125rem);font-weight:800;letter-spacing:-.01em;line-height:1.2}
+/* one row model everywhere: [icon] [text] [amount] [chevron] [eye] */
+.eyecard{gap:var(--s3)}
+.hero{text-align:left;border-left:3px solid var(--rosedeep);padding:var(--s4) var(--pad) var(--s4) calc(var(--pad) - 3px);background:linear-gradient(135deg,#fff 55%,var(--soft))}
+.hero .eyecard .grow{text-align:left}
+.ico{flex:none;width:var(--ico);height:var(--ico);border-radius:var(--rs);background:var(--soft);color:var(--plum);display:inline-flex;align-items:center;justify-content:center}
+.ico svg{width:20px;height:20px}
+.ico.in{background:var(--greenbg);color:var(--green)}.ico.out{background:var(--redbg);color:var(--red)}.ico.xfer{background:#EFE7F8;color:var(--xfer)}
+.ico.ava{border-radius:50%;background:var(--soft);font-weight:800;font-size:.9375rem;color:var(--plum)}
+.hero .ico{background:var(--plum);color:var(--rose)}
+.acct{padding:var(--pad);min-height:0;gap:var(--s3);font-size:1rem;font-weight:600}
+.acct b{font-size:1.0625rem;font-weight:700}
+.acct .amtwrap{gap:var(--s1)}
+.acct .chev{width:28px;min-height:40px;font-size:1rem}
+.accpanel{padding:0 var(--pad) var(--pad)}
+.accpanel .item{padding:var(--s2) 0}
+.accpanel .pbtns{gap:var(--s2);margin-top:var(--s2)}
+.accpanel .pbtns .btn{min-height:44px;font-size:.875rem;padding:var(--s2) var(--s1)}
+.eye{min-width:var(--eye);min-height:var(--eye);width:var(--eye);height:var(--eye);padding:0;border-radius:var(--rs);background:var(--soft);color:var(--plum)}
+.eye svg{width:20px;height:20px;pointer-events:none}
+.eye{position:relative}.eye::after{content:'';position:absolute;inset:-4px} /* 48 px touch target around the 40 px button */
+.eye[aria-pressed=true]{background:var(--soft);color:var(--plum)}
+.eye[aria-pressed=false]{background:var(--plum);color:var(--rose)}
+header .eye{width:40px;height:40px;background:rgba(255,255,255,.12);color:#fff}
+header .eye[aria-pressed=false]{background:var(--rose);color:var(--plum)}
+.warn{padding:var(--s3);font-size:.875rem;border-radius:var(--r);margin-bottom:var(--s2);line-height:1.4}
+.btn{min-height:48px;padding:var(--s3) var(--s4);font-size:1rem;border-radius:12px;margin-top:var(--s3)}
+.row2{gap:var(--s2)}
+.row2 .btn{margin-top:var(--s2)}
+.btn.sm{min-height:40px;font-size:.8125rem}
+label{font-size:.8125rem;margin:var(--s3) 0 var(--s1)}
+input,select{font-size:1rem;padding:10px var(--s3);min-height:48px;border-radius:var(--rs)}
+.amt{font-size:1.375rem;font-weight:800}
+.seg{border-radius:12px}
+.seg button{min-height:44px;font-size:.875rem;padding:var(--s2) var(--s1)}
+.chips{gap:var(--s2)}
+.chip{min-height:44px;padding:var(--s2) var(--s3);font-size:.9375rem;border-width:1.5px;border-radius:var(--rs)}
+.item{gap:var(--s3);padding:var(--s3) 0}
+.item .body .t{font-size:.9375rem}
+.item .amtc{font-size:.9375rem}
+.item .acts{gap:var(--s1)}
+.item .acts button{min-width:40px;min-height:40px;font-size:1rem;border-radius:var(--rs)}
+.modal .sheet{padding:var(--s4) var(--s4) calc(var(--s4) + env(safe-area-inset-bottom));border-radius:20px 20px 0 0}
+.modal h2{font-size:1.1875rem;font-weight:800}
+.modal .x{min-width:40px;min-height:40px;font-size:1rem}
+.badge{font-size:.75rem;padding:3px 10px}
+.setacct{padding:var(--s2)}
+.setacct .r{grid-template-columns:minmax(0,1fr) minmax(96px,34%) 44px;gap:var(--s2)}
+.setacct input{padding:var(--s2) 10px;font-size:.9375rem}
+.setacct .iconbtn{min-height:44px}
+@media (max-width:380px){.setacct .r{grid-template-columns:minmax(0,1fr) 44px}.setacct .r > div:first-child{grid-column:1/-1}}
+.iconbtn{min-height:48px}
+.toast{font-size:.875rem;padding:10px var(--s4)}
+.empty{padding:var(--s4) var(--s2);font-size:.875rem}
+/* loans: outstanding stands out */
+.loan{padding:var(--pad);font-size:.9375rem;border-left:0}
+.loan.paid{opacity:1;border-left:0}.loan.open{border-left:0}
+.loan .top{gap:var(--s3);align-items:center}
+.loan .whobox{flex:1;min-width:0;display:flex;flex-direction:column}
+.loan .who{font-size:1rem;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.loan .lgiven{font-size:.8125rem}
+.lout{display:flex;justify-content:space-between;align-items:center;gap:var(--s2);background:var(--amberbg);border-left:3px solid var(--rosedeep);border-radius:var(--rs);padding:var(--s2) var(--s3);margin-top:var(--s2)}
+.lout > span{font-size:.75rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--amber)}
+.lout b{font-size:1.1875rem;font-weight:800;color:var(--plum);white-space:nowrap}
+.loan .lout{margin-left:calc(var(--ico) + var(--s3))}
+.paid .lout,.lout.paid{background:var(--greenbg);border-left-color:var(--green)}
+.paid .lout > span,.lout.paid > span,.paid .lout b,.lout.paid b{color:var(--green)}
+.loan .nums{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s4);margin:var(--s2) 0 0 calc(var(--ico) + var(--s3))}
+.loan .nums span{font-size:.8125rem;color:var(--muted);white-space:nowrap}
+.loan .nums b{font-size:.8125rem;font-weight:700;color:var(--label)}
+.lout.detail{padding:var(--s3)}
+.lout.detail b{font-size:clamp(1.375rem,1rem + 1.6vw,1.625rem)}
+.sumgrid{grid-template-columns:1fr 1fr;gap:var(--s2);margin-top:var(--s2)}
+.sumgrid div{padding:var(--s2) var(--s3);border-radius:var(--rs)}
+.sumgrid small{font-size:.75rem}
+.sumgrid b{font-size:.9375rem;font-weight:700}
+.th{width:56px;height:56px}
+.accpanel .item .acts button{min-width:36px;min-height:36px;font-size:.9375rem}
+.row2 .btn{padding:var(--s3) var(--s2);line-height:1.25}
+.item .body .muted{line-height:1.35}
 </style>
 </head>
 <body>
@@ -164,7 +261,7 @@ h3{font-size:15px;margin:18px 0 4px;color:var(--label)}
 <button class="updToast" id="updToast" hidden>New version ready · Tap to update</button>
 <script>
 'use strict';
-const APP_V = 8;
+const APP_V = 9;
 const KEY = 'emz-money-v1';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function defaultState() {
@@ -217,6 +314,22 @@ let P; try { P = JSON.parse(localStorage.getItem(PKEY)); } catch (e) { P = null;
 if (!P || typeof P.h !== 'object' || !P.h) P = { h: {} };
 const savePriv = () => localStorage.setItem(PKEY, JSON.stringify(P));
 const MASK = '₱ ••••••';
+// v9: simple line icons shown in a fixed 36 px column on every card / row
+const SV = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICONS = {
+  wallet: SV('<path d="M19 7V5.5A1.5 1.5 0 0 0 17.5 4H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v2.5h-4a2 2 0 0 0 0 4h4V19a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V6"/>'),
+  coins: SV('<ellipse cx="12" cy="6" rx="7" ry="2.8"/><path d="M5 6v6c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8V6"/><path d="M5 12v6c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-6"/>'),
+  bank: SV('<path d="M3 9.5 12 4l9 5.5z"/><path d="M5.5 10v7.5M10 10v7.5M14 10v7.5M18.5 10v7.5M3.5 20h17"/>'),
+  cash: SV('<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>'),
+  owed: SV('<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5 8.5 15.5M8.5 10v5.5H14"/>'),
+  lent: SV('<circle cx="12" cy="12" r="9"/><path d="M8.5 15.5 15.5 8.5M10 8.5h5.5V14"/>'),
+  receipt: SV('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
+  in: SV('<path d="M17 7 7 17M7 9.5V17h7.5"/>'),
+  out: SV('<path d="M7 17 17 7M9.5 7H17v7.5"/>'),
+  xfer: SV('<path d="M4 8.5h15l-3.5-3.5M20 15.5H5l3.5 3.5"/>')
+};
+const ico = (k, cls) => `<span class="ico${cls ? ' ' + cls : ''}">${ICONS[k]}</span>`;
+const initial = n => esc((String(n || '?').trim()[0] || '?').toUpperCase());
 const EYE_OPEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-7-11-7a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
 const privKeys = () => ['total', ...S.accounts.map(a => 'a:' + a.id), 'owed', 'net', 'd:bank', 'd:lent', 'd:cash', 'd:exp'];
@@ -300,16 +413,16 @@ function homeHTML() {
   if (hasData() && (ds === null || ds >= 14))
     h += `<button class="warn" id="backupNag" onclick="go('set')">💾 Auto backups stay on this phone only. ${ds === null ? 'Share a copy off the phone' : `Last copy off the phone was ${ds} days ago — share a new one`} (e.g. Messenger or email). Tap to back up.</button>`;
   // v5 order: Net worth (hero) · Total balance · accounts · Owed to me
-  h += `<div class="card hero" id="netCard"><div class="eyecard"><div class="grow"><div class="lbl">Net worth <span class="muted">(balance + owed)</span></div><div class="big" id="netWorth">${amt(tb + lt.out, 'net', tb + lt.out < 0 ? 'neg' : '')}</div></div>${eyeBtn('net', 'net worth')}</div></div>`;
-  h += `<div class="card" id="totalCard"><div class="eyecard"><div class="grow"><div class="lbl">Total balance</div><div class="mid" id="totalBal">${amt(tb, 'total', tb < 0 ? 'neg' : '')}</div></div>${eyeBtn('total', 'total balance')}</div></div>`;
+  h += `<div class="card hero" id="netCard"><div class="eyecard">${ico('wallet')}<div class="grow"><div class="lbl">Net worth <span class="muted">(balance + owed)</span></div><div class="big" id="netWorth">${amt(tb + lt.out, 'net', tb + lt.out < 0 ? 'neg' : '')}</div></div>${eyeBtn('net', 'net worth')}</div></div>`;
+  h += `<div class="card" id="totalCard"><div class="eyecard">${ico('coins')}<div class="grow"><div class="lbl">Total balance</div><div class="mid" id="totalBal">${amt(tb, 'total', tb < 0 ? 'neg' : '')}</div></div>${eyeBtn('total', 'total balance')}</div></div>`;
   for (const a of S.accounts) {
     const b = balance(a.id);
     const op = openAccts.has(a.id);
-    h += `<div class="acctbox${op ? ' open' : ''}" data-box="${esc(a.id)}"><div class="acct" role="button" tabindex="0" data-acct="${esc(a.id)}" aria-expanded="${op}" onclick="toggleAcct('${esc(a.id)}')"><span class="nm">${esc(a.name)}</span><span class="amtwrap"><b>${amt(b, 'a:' + a.id, b < 0 ? 'neg' : '')}</b><span class="chev" aria-expanded="${op}" aria-label="${op ? 'Collapse' : 'Expand'} ${esc(a.name)}">▾</span>${eyeBtn('a:' + a.id, a.name)}</span></div>${op ? acctPanel(a.id) : ''}</div>`;
+    h += `<div class="acctbox${op ? ' open' : ''}" data-box="${esc(a.id)}"><div class="acct" role="button" tabindex="0" data-acct="${esc(a.id)}" aria-expanded="${op}" onclick="toggleAcct('${esc(a.id)}')">${ico(isCash(a) ? 'cash' : 'bank')}<span class="nm">${esc(a.name)}</span><span class="amtwrap"><b>${amt(b, 'a:' + a.id, b < 0 ? 'neg' : '')}</b><span class="chev" aria-expanded="${op}" aria-label="${op ? 'Collapse' : 'Expand'} ${esc(a.name)}">▾</span>${eyeBtn('a:' + a.id, a.name)}</span></div>${op ? acctPanel(a.id) : ''}</div>`;
   }
-  h += `<div class="acct" role="button" tabindex="0" id="owedCard" onclick="go('loans')"><span class="grow" style="flex:1;min-width:0;display:flex;flex-direction:column">
-    <span class="lbl">Owed to me</span><span class="mid" id="owedTotal">${amt(lt.out, 'owed')}</span>
-    <span class="muted" id="owedMeta">${lt.open} open loan${lt.open === 1 ? '' : 's'}</span></span>${eyeBtn('owed', 'owed to me')}</div>`;
+  h += `<div class="card owed" role="button" tabindex="0" id="owedCard" onclick="go('loans')"><div class="eyecard">${ico('owed')}<div class="grow">
+    <div class="lbl">Owed to me</div><div class="mid" id="owedTotal">${amt(lt.out, 'owed')}</div>
+    <div class="muted" id="owedMeta">${lt.open} open loan${lt.open === 1 ? '' : 's'}</div></div>${eyeBtn('owed', 'owed to me')}</div></div>`;
   h += `<div class="row2"><button class="btn" onclick="go('add')">➕ Add money</button><button class="btn gold" onclick="lendForm()">🤝 Lend money</button></div>`;
   return h;
 }
@@ -409,7 +522,8 @@ function acctRows(id) {
 }
 function acctRowHTML(r, id, inModal) {
   const k = 'a:' + id, cls = r.x ? 'xfer' : r.sign > 0 ? 'plus' : 'minus', ro = inModal ? `reopen=()=>openAccount('${esc(id)}')` : 'reopen=null';
-  return `<div class="item"><div class="body"><div class="t">${esc(r.t)}</div><div class="muted">${fmtDate(r.d.date)}${r.d.note ? ' · ' + esc(r.d.note) : ''}</div></div>
+  const ik = r.kind === 'loan' ? (r.sign > 0 ? 'in' : 'out') : r.x ? 'xfer' : r.sign > 0 ? 'in' : 'out';
+  return `<div class="item">${ico(ik === 'xfer' ? 'xfer' : ik, ik)}<div class="body"><div class="t">${esc(r.t)}</div><div class="muted">${fmtDate(r.d.date)}${r.d.note ? ' · ' + esc(r.d.note) : ''}</div></div>
       <div class="amtc ${hid(k) ? '' : cls}">${hid(k) ? '' : r.sign > 0 ? '+' : '−'}${amt(r.d.amount, k)}</div>
       <div class="acts">${r.kind === 'tx' ? `<button onclick="${ro};editTx('${r.d.id}')" aria-label="Edit">✏️</button><button class="del" onclick="${ro};delTx('${r.d.id}')" aria-label="Delete">🗑️</button>`
         : `<button onclick="openLoan('${r.loan}')" aria-label="Open loan">›</button>`}</div></div>`;
@@ -432,7 +546,7 @@ function openAccount(id) {
     <h3>Recent</h3><div id="acctRows">`;
   if (!rows.length) h += `<div class="empty">No entries yet${cents(a.opening) ? ` · opening balance ${amt(a.opening, k)}` : ''}</div>`;
   for (const r of rows) h += acctRowHTML(r, id, true);
-  if (cents(a.opening) && rows.length) h += `<div class="item"><div class="body"><div class="t">Opening balance</div></div><div class="amtc">${amt(a.opening, k)}</div></div>`;
+  if (cents(a.opening) && rows.length) h += `<div class="item">${ico(isCash(a) ? 'cash' : 'bank')}<div class="body"><div class="t">Opening balance</div></div><div class="amtc">${amt(a.opening, k)}</div></div>`;
   h += '</div>';
   openModal(h); fitBig();
 }
@@ -447,7 +561,8 @@ function dashHTML() {
   const lent = loanTotals();
   const [y, mo] = m.split('-').map(Number);
   const monthName = new Date(y, mo - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-  const card = (id, key, label, v, sub, cls) => `<div class="card dcard" id="${id}"><div class="eyecard"><div class="grow"><div class="lbl">${label}</div><div class="big" id="${id}Val">${amt(v, key, cls)}</div>${sub ? `<div class="muted">${sub}</div>` : ''}</div>${eyeBtn(key, label.toLowerCase())}</div></div>`;
+  const DI = { dBank: 'bank', dLent: 'lent', dCash: 'cash', dExp: 'receipt' };
+  const card = (id, key, label, v, sub, cls) => `<div class="card dcard" id="${id}"><div class="eyecard">${ico(DI[id])}<div class="grow"><div class="lbl">${label}</div><div class="big" id="${id}Val">${amt(v, key, cls)}</div>${sub ? `<div class="muted">${sub}</div>` : ''}</div>${eyeBtn(key, label.toLowerCase())}</div></div>`;
   return card('dBank', 'd:bank', 'Money in accounts', bankC / 100, `${S.accounts.filter(a => !isCash(a)).length} bank account${S.accounts.filter(a => !isCash(a)).length === 1 ? '' : 's'}`, bankC < 0 ? 'neg' : '')
     + card('dLent', 'd:lent', 'Money lent', lent.out, `${lent.open} open loan${lent.open === 1 ? '' : 's'}`)
     + card('dCash', 'd:cash', 'Cash on hand', cashC / 100, S.accounts.some(isCash) ? '' : 'No cash account yet — add one in Settings', cashC < 0 ? 'neg' : '')
@@ -458,9 +573,9 @@ function dashHTML() {
 const fromTxt = acc => acc == null ? 'Not from an account' : 'From ' + acctName(acc);
 function loansHTML() {
   const lt = loanTotals();
-  let h = `<div class="card hero"><div class="lbl">Owed to me</div><div class="big" id="loansOwed">${amt(lt.out, 'owed')}</div>
-    <div class="muted">${lt.open} open</div></div>
-    <button class="btn gold" id="lendBtn" onclick="lendForm()" style="margin:0 0 14px">🤝 Lend money</button>`;
+  let h = `<div class="card hero"><div class="eyecard">${ico('owed')}<div class="grow"><div class="lbl">Owed to me</div><div class="big" id="loansOwed">${amt(lt.out, 'owed')}</div>
+    <div class="muted">${lt.open} open loan${lt.open === 1 ? '' : 's'}</div></div></div></div>
+    <button class="btn gold" id="lendBtn" onclick="lendForm()" style="margin:0 0 12px">🤝 Lend money</button>`;
   if (!S.loans.length) return h + '<div class="empty">No loans yet.</div>';
   const order = { Open: 0, Paid: 1 };
   const list = S.loans.map(l => ({ l, i: loanInfo(l) })).sort((a, b) => order[a.i.status] - order[b.i.status] || byNewest(a.l, b.l));
@@ -469,9 +584,10 @@ function loansHTML() {
     if (i.status === 'Paid' && !paidHdr) { h += '<h3>Paid</h3>'; paidHdr = true; }
     const nMore = tranches(l).length - 1;
     h += `<button class="loan ${i.status.toLowerCase()}" data-loan="${l.id}" onclick="openLoan('${l.id}')">
-      <div class="top"><span class="who">${esc(l.borrower)}</span><span class="badge ${i.status}">${i.status}</span></div>
-      <div class="muted lgiven">Given ${fmtDate(l.date)}${nMore ? ` · +${nMore} more` : ''}${loanImgCount(l) ? ` · <span class="clip" aria-label="${loanImgCount(l)} photos">📎 ${loanImgCount(l)}</span>` : ''}</div>
-      <div class="nums"><div><small>Lent</small><b>${amt(i.lent, 'owed')}</b></div><div><small>Repaid</small><b>${amt(i.repaid, 'owed')}</b></div><div><small>Outstanding</small><b>${amt(i.out, 'owed')}</b></div></div></button>`;
+      <div class="top"><span class="ico ava" aria-hidden="true">${initial(l.borrower)}</span><span class="whobox"><span class="who">${esc(l.borrower)}</span>
+      <span class="muted lgiven">Given ${fmtDate(l.date)}${nMore ? ` · +${nMore} more` : ''}${loanImgCount(l) ? ` · <span class="clip" aria-label="${loanImgCount(l)} photos">📎 ${loanImgCount(l)}</span>` : ''}</span></span><span class="badge ${i.status}">${i.status}</span></div>
+      <div class="lout"><span>Outstanding</span><b>${amt(i.out, 'owed')}</b></div>
+      <div class="nums"><span>Lent <b>${amt(i.lent, 'owed')}</b></span><span>Repaid <b>${amt(i.repaid, 'owed')}</b></span></div></button>`;
   }
   return h;
 }
@@ -540,16 +656,17 @@ function openLoan(id) {
   const l = S.loans.find(x => x.id === id); if (!l) { closeModal(); return; }
   const i = loanInfo(l), reps = repaysOf(id).sort(byNewest), tr = tranches(l);
   let h = mhead(esc(l.borrower)) + `<div style="margin-top:6px"><span class="badge ${i.status}" id="loanStatus">${i.status}</span></div>
-    <div class="sumgrid"><div><small>Lent</small><b id="loanLent">${amt(i.lent, 'owed')}</b></div><div><small>Repaid</small><b>${amt(i.repaid, 'owed')}</b></div><div><small>Outstanding</small><b id="loanOut">${amt(i.out, 'owed')}</b></div></div>
-    <div class="lbl" style="margin-top:10px;font-size:16px;color:var(--text)" id="loanGiven">Given ${fmtDate(l.date)}</div><div class="muted" id="loanFrom">${esc(fromTxt(l.account))}${l.note ? '<br>' + esc(l.note) : ''}</div>
+    <div class="lout detail${i.status === 'Paid' ? ' paid' : ''}"><span>Outstanding</span><b id="loanOut">${amt(i.out, 'owed')}</b></div>
+    <div class="sumgrid"><div><small>Lent</small><b id="loanLent">${amt(i.lent, 'owed')}</b></div><div><small>Repaid</small><b>${amt(i.repaid, 'owed')}</b></div></div>
+    <div class="lbl" style="margin-top:12px;font-size:.9375rem;color:var(--text)" id="loanGiven">Given ${fmtDate(l.date)}</div><div class="muted" id="loanFrom">${esc(fromTxt(l.account))}${l.note ? '<br>' + esc(l.note) : ''}</div>
     ${i.status !== 'Paid' ? '<button class="btn green" id="repayBtn">💵 Record repayment</button>' : ''}
     <button class="btn light" id="moreBtn">➕ Add more to this loan</button>
     <h3>Lent</h3><div id="trancheList">`;
-  for (const t of tr) h += `<div class="item tranche"><div class="body"><div class="t">Given ${fmtDate(t.date)}</div><div class="muted">${esc(fromTxt(t.account))}${t.note ? ' · ' + esc(t.note) : ''}</div>${thumbsHTML(t.images, t.first ? 'L:' + id : 'T:' + id + ':' + t.id)}</div>
+  for (const t of tr) h += `<div class="item tranche">${ico('out', 'out')}<div class="body"><div class="t">Given ${fmtDate(t.date)}</div><div class="muted">${esc(fromTxt(t.account))}${t.note ? ' · ' + esc(t.note) : ''}</div>${thumbsHTML(t.images, t.first ? 'L:' + id : 'T:' + id + ':' + t.id)}</div>
     <div class="amtc">${amt(t.amount, 'owed')}</div><div class="acts">${t.first ? `<button onclick="lendForm('${id}')" aria-label="Edit">✏️</button>` : `<button onclick="trancheForm('${id}','${t.id}')" aria-label="Edit">✏️</button><button class="del" onclick="delTranche('${id}','${t.id}')" aria-label="Delete">🗑️</button>`}</div></div>`;
   h += `</div><h3>Repayments</h3><div id="repayList">`;
   if (!reps.length) h += '<div class="empty">None yet</div>';
-  for (const r of reps) h += `<div class="item repay"><div class="body"><div class="t">${r.account == null ? 'Not into an account' : 'Into ' + esc(acctName(r.account))}</div><div class="muted">${fmtDate(r.date)}${r.note ? ' · ' + esc(r.note) : ''}</div>${thumbsHTML(r.images, 'R:' + r.id)}</div>
+  for (const r of reps) h += `<div class="item repay">${ico('in', 'in')}<div class="body"><div class="t">${r.account == null ? 'Not into an account' : 'Into ' + esc(acctName(r.account))}</div><div class="muted">${fmtDate(r.date)}${r.note ? ' · ' + esc(r.note) : ''}</div>${thumbsHTML(r.images, 'R:' + r.id)}</div>
     <div class="amtc ${hid('owed') ? '' : 'plus'}">${hid('owed') ? '' : '+'}${amt(r.amount, 'owed')}</div><div class="acts"><button onclick="repayForm('${id}','${r.id}')" aria-label="Edit">✏️</button><button class="del" onclick="delRepay('${r.id}')" aria-label="Delete">🗑️</button></div></div>`;
   h += `</div><div class="row2"><button class="btn light" id="editLoan">✏️ Edit loan</button><button class="btn danger" id="delLoan">🗑️ Delete loan</button></div>`;
   const sh = openModal(h); fillThumbs(sh);

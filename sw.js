@@ -1,12 +1,15 @@
-const CACHE = 'emz-money-v8';
-const ASSETS = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './fonts/nunito-400-700.woff2', './fonts/playfair-display-600-700.woff2'];
+const CACHE = 'emz-money-v9';
+const CORE = ['./', './index.html', './manifest.json'];
+const ASSETS = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './fonts/manrope-400-800.woff2', './fonts/playfair-title.woff2'];
 // v7: no skipWaiting on install. A first install activates straight away anyway (nothing to replace);
 // an update waits until the page asks (user tapped "New version ready"), so nothing swaps mid-session.
 // One exception: replacing a v1–v6 worker (network-first, the slow one). The page that installs v7 is
 // already the v7 page, so taking over at once is safe and makes the very next open instant.
 const LEGACY = /^emz-money-v[1-6]$/;
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' }))))
+  // page + manifest must cache; icons/fonts are best-effort so one missing file can't block the update
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE.map(u => new Request(u, { cache: 'reload' })))
+      .then(() => Promise.all(ASSETS.filter(u => !CORE.includes(u)).map(u => c.add(new Request(u, { cache: 'reload' })).catch(() => {})))))
     .then(() => caches.keys()).then(keys => { if (keys.some(k => LEGACY.test(k))) return self.skipWaiting(); }));
 });
 self.addEventListener('message', e => { if (e.data && e.data.type === 'skip-waiting') self.skipWaiting(); });
