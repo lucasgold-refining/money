@@ -260,6 +260,28 @@ input,select{font-size:1rem;padding:10px var(--s3);min-height:48px;border-radius
 .accpanel .item .acts button{min-width:36px;min-height:36px;font-size:.9375rem}
 .row2 .btn{padding:var(--s3) var(--s2);line-height:1.25}
 .item .body .muted{line-height:1.35}
+/* v11 expenses breakdown */
+#dExp{cursor:pointer}
+#dExp:focus-visible{outline:2px solid var(--rosedeep);outline-offset:2px}
+.seebd{color:var(--plum);font-weight:700;white-space:nowrap}
+.exptop{display:flex;align-items:center;gap:var(--s2);margin:0 0 var(--s2)}
+.exptop h2{margin:0;font-size:1.125rem}
+.backbtn{border:0;background:var(--soft);color:var(--plum);border-radius:var(--rs);min-height:44px;padding:0 var(--s3);font:inherit;font-weight:700;font-size:.9375rem;cursor:pointer}
+.mpick{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:var(--s2);margin:0 0 var(--s3)}
+.mpick button{border:0;background:var(--card);color:var(--plum);border-radius:var(--rs);min-height:44px;font-size:1.25rem;font-weight:800;box-shadow:0 1px 3px var(--shadow);cursor:pointer}
+.mpick button:disabled{opacity:.35;cursor:default}
+.mpick #mLabel{text-align:center;font-weight:800;font-size:1rem}
+.card.list{padding-top:0;padding-bottom:0}
+.exa .t{display:flex;align-items:center;gap:var(--s2);min-width:0}
+.exa .t .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.septag{display:inline-block;font-size:.6875rem;font-weight:700;color:var(--muted);background:var(--soft);border-radius:99px;padding:1px var(--s2);white-space:nowrap;vertical-align:1px}
+.bar{height:4px;border-radius:99px;background:var(--line);margin-top:var(--s1);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--rosedeep);border-radius:99px}
+.exv{flex:none;min-width:6.75em;text-align:right;font-variant-numeric:tabular-nums}
+.exv .pct{font-size:.75rem}
+.item .amtc{font-variant-numeric:tabular-nums}
+button.item.exrow{width:100%;background:none;border:0;border-bottom:1px solid var(--line);font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:0}
+button.item.exrow:last-child{border-bottom:0}
 </style>
 </head>
 <body>
@@ -276,7 +298,7 @@ input,select{font-size:1rem;padding:10px var(--s3);min-height:48px;border-radius
 <button class="updToast" id="updToast" hidden>New version ready · Tap to update</button>
 <script>
 'use strict';
-const APP_V = 10;
+const APP_V = 11;
 const KEY = 'emz-money-v1';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function defaultState() {
@@ -412,7 +434,7 @@ let view = 'home';
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => go(b.dataset.v));
 function go(v, opts) {
   view = v; addMode = (opts && opts.mode) || addMode;
-  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v === (v === 'exp' ? 'dash' : v)));
   render(); window.scrollTo(0, 0);
 }
 function render() { renderInner(); fitBig(); }
@@ -431,6 +453,7 @@ function renderInner() {
   if (view === 'home') app.innerHTML = homeHTML();
   else if (view === 'add') { app.innerHTML = '<div class="card" id="addCard"></div>'; txForm($('#addCard'), null); }
   else if (view === 'dash') app.innerHTML = dashHTML();
+  else if (view === 'exp') app.innerHTML = expHTML();
   else if (view === 'loans') app.innerHTML = loansHTML();
   else if (view === 'set') { app.innerHTML = setHTML(); bindSettings(); }
 }
@@ -608,11 +631,48 @@ function dashHTML() {
   const [y, mo] = m.split('-').map(Number);
   const monthName = new Date(y, mo - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   const DI = { dBank: 'bank', dLent: 'lent', dCash: 'cash', dExp: 'receipt' };
-  const card = (id, key, label, v, sub, cls) => `<div class="card dcard" id="${id}"><div class="eyecard">${ico(DI[id])}<div class="grow"><div class="lbl">${label}</div><div class="big" id="${id}Val">${amt(v, key, cls)}</div>${sub ? `<div class="muted">${sub}</div>` : ''}</div>${eyeBtn(key, label.toLowerCase())}</div></div>`;
+  const card = (id, key, label, v, sub, cls) => `<div class="card dcard" id="${id}"${id === 'dExp' ? ` role="button" tabindex="0" aria-label="Expenses this month — open breakdown" onclick="openExp()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openExp()}"` : ''}><div class="eyecard">${ico(DI[id])}<div class="grow"><div class="lbl">${label}</div><div class="big" id="${id}Val">${amt(v, key, cls)}</div>${sub ? `<div class="muted">${sub}</div>` : ''}</div>${eyeBtn(key, label.toLowerCase())}</div></div>`;
   return card('dBank', 'd:bank', 'Money in accounts', bankC / 100, `${inA.filter(a => !isCash(a)).length} bank account${inA.filter(a => !isCash(a)).length === 1 ? '' : 's'}${S.accounts.length > inA.length ? ` · ${S.accounts.length - inA.length} separate` : ''}`, bankC < 0 ? 'neg' : '')
     + card('dLent', 'd:lent', 'Money lent', lent.out, `${lent.open} open loan${lent.open === 1 ? '' : 's'}`)
     + card('dCash', 'd:cash', 'Cash on hand', cashC / 100, inA.some(isCash) ? '' : S.accounts.some(isCash) ? 'Cash account is kept separate' : 'No cash account yet — add one in Settings', cashC < 0 ? 'neg' : '')
-    + card('dExp', 'd:exp', 'Expenses this month', expC / 100, `${monthName} · money out only`, '');
+    + card('dExp', 'd:exp', 'Expenses this month', expC / 100, `${monthName} · <span class="seebd">Breakdown ›</span>`, '');
+}
+
+// ---------- expenses breakdown (v11) ----------
+// Same definition as the Dashboard total: money-out entries only (no loans, transfers or repayments).
+let expMonth = null; // 'YYYY-MM'
+const curMonth = () => todayISO().slice(0, 7);
+const addMonth = (m, d) => { const [y, mo] = m.split('-').map(Number); const t = new Date(y, mo - 1 + d, 1); return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0'); };
+const monthLabel = (m, short) => { const [y, mo] = m.split('-').map(Number); return new Date(y, mo - 1, 1).toLocaleDateString('en-GB', short ? { month: 'long' } : { month: 'long', year: 'numeric' }); };
+const monthOut = m => S.tx.filter(t => t.type === 'out' && (t.date || '').slice(0, 7) === m);
+function openExp() { expMonth = curMonth(); go('exp'); }
+function expGo(d) { const m = addMonth(expMonth || curMonth(), d); if (m > curMonth()) return; expMonth = m; render(); }
+function expHTML() {
+  const m = expMonth || (expMonth = curMonth()), K = 'd:exp', list = monthOut(m).sort(byNewest);
+  const totC = list.reduce((x, t) => x + cents(t.amount), 0), prev = addMonth(m, -1), prevC = monthOut(prev).reduce((x, t) => x + cents(t.amount), 0);
+  const pm = monthLabel(prev, prev.slice(0, 4) !== m.slice(0, 4) ? 0 : 1), d = totC - prevC;
+  const cmp = !totC && !prevC ? `Nothing spent in ${pm} either` : !prevC ? `Nothing spent in ${pm}` : !d ? `Same as ${pm}` : `${amt(Math.abs(d) / 100, K)} ${d < 0 ? 'less' : 'more'} than ${pm}`;
+  const atMax = m >= curMonth();
+  let h = `<div class="exptop"><button type="button" class="backbtn" id="expBack" onclick="go('dash')" aria-label="Back to Dashboard">‹ <span>Dashboard</span></button><h2 id="expTitle">Expenses</h2></div>
+    <div class="mpick" id="mPick"><button type="button" id="mPrev" onclick="expGo(-1)" aria-label="Previous month">‹</button><div id="mLabel" aria-live="polite">${monthLabel(m)}</div><button type="button" id="mNext" onclick="expGo(1)" aria-label="Next month" ${atMax ? 'disabled' : ''}>›</button></div>
+    <div class="card hero" id="expCard"><div class="eyecard">${ico('receipt')}<div class="grow"><div class="lbl">Spent in ${monthLabel(m, 1)}</div><div class="big" id="expTotal">${amt(totC / 100, K)}</div>
+    <div class="muted" id="expCmp">${cmp}</div></div>${eyeBtn(K, 'expenses')}</div></div>`;
+  if (!list.length) return h + `<div class="card"><div class="empty" id="expEmpty">No expenses in ${monthLabel(m)}</div></div>`;
+  const by = new Map(); for (const t of list) by.set(t.account, (by.get(t.account) || 0) + cents(t.amount));
+  const rows = [...by].sort((a, b) => b[1] - a[1] || acctName(a[0]).localeCompare(acctName(b[0])));
+  h += `<h3>By account</h3><div class="card list" id="expByAcct">`;
+  for (const [id, c] of rows) {
+    const a = acct(id), pct = Math.round(c * 100 / totC);
+    h += `<div class="item exa" data-acct="${esc(id)}">${ico(a && isCash(a) ? 'cash' : 'bank')}<div class="body"><div class="t"><span class="nm">${esc(acctName(id))}</span>${a && !inNW(a) ? '<span class="septag">separate</span>' : ''}</div>
+      <div class="bar" aria-hidden="true"><i style="width:${Math.max(2, pct)}%"></i></div></div><div class="exv"><div class="amtc">${amt(c / 100, K)}</div><div class="muted pct">${pct}%</div></div></div>`;
+  }
+  h += `</div><h3>${list.length} expense${list.length === 1 ? '' : 's'}</h3><div class="card list" id="expList">`;
+  for (const t of list) {
+    const a = acct(t.account);
+    h += `<button type="button" class="item exrow" data-tx="${esc(t.id)}" onclick="reopen=null;editTx('${esc(t.id)}')" aria-label="Edit expense">${ico('out', 'out')}<div class="body"><div class="t">${esc(t.note || 'Money out')}</div>
+      <div class="muted">${fmtDate(t.date)} · ${esc(acctName(t.account))}${a && !inNW(a) ? ' <span class="septag">separate</span>' : ''}</div></div><div class="amtc minus">${hid(K) ? '' : '−'}${amt(t.amount, K)}</div></button>`;
+  }
+  return h + '</div>';
 }
 
 // ---------- loans ----------
