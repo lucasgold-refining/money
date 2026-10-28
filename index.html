@@ -260,6 +260,33 @@ input,select{font-size:1rem;padding:10px var(--s3);min-height:48px;border-radius
 .accpanel .item .acts button{min-width:36px;min-height:36px;font-size:.9375rem}
 .row2 .btn{padding:var(--s3) var(--s2);line-height:1.25}
 .item .body .muted{line-height:1.35}
+/* v12 categories */
+.lblrow{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--s2)}
+.lblrow label{margin-bottom:var(--s1)}
+.linkbtn{border:0;background:none;color:var(--plum);font:inherit;font-weight:700;font-size:.875rem;min-height:44px;padding:0 var(--s1);cursor:pointer}
+.catchips{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s2)}
+.cchip{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:60px;padding:var(--s2) var(--s1);border:1.5px solid var(--input);background:#fff;border-radius:var(--rs);font:inherit;color:var(--text);cursor:pointer;min-width:0}
+.cchip .ce{font-size:1.375rem;line-height:1}
+.cchip .cn{font-size:.75rem;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cchip.on{border-color:var(--plum);background:var(--plum);color:#fff}
+.catstate{min-height:1.2em;margin-top:var(--s1);font-size:.75rem}
+#catChipsWrap{container-type:inline-size;container-name:catchips}
+@container catchips (max-width:22rem){.catchips{grid-template-columns:repeat(3,minmax(0,1fr))}}
+#catList{container-type:inline-size;container-name:catlist}
+@container catlist (max-width:24rem){#catList .setcat{grid-template-columns:44px minmax(0,1fr) 40px 40px 40px;gap:var(--s1)}#catList .setcat input{padding:var(--s1) var(--s2)}}
+.ico.emo{font-size:1.125rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;background:var(--soft)}
+button.item.exc{width:100%;background:none;border:0;border-bottom:1px solid var(--line);font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:0}
+button.item.exc:last-child{border-bottom:0}
+button.item.exc.on .nm{color:var(--plum);font-weight:800}
+button.item.exc.on .bar i{background:var(--plum)}
+.fbar{margin:0 0 var(--s2)}
+.fchip{display:inline-flex;align-items:center;gap:var(--s2);min-height:44px;padding:0 var(--s3);border:0;border-radius:99px;background:var(--plum);color:#fff;font:inherit;font-weight:700;font-size:.875rem;cursor:pointer;max-width:100%}
+.setcat{display:grid;grid-template-columns:52px minmax(0,1fr) 44px 44px 44px;gap:var(--s2);align-items:center;margin-top:var(--s2)}
+.setcat input{padding:var(--s2);font-size:.9375rem;min-height:44px}
+.setcat .cicon{text-align:center;font-size:1.125rem;padding:0 !important}
+.setcat .iconbtn{min-height:44px;padding:0}
+.iconbtn.light{background:var(--soft);color:var(--plum);font-weight:800}
+.iconbtn:disabled{opacity:.35}
 /* v11 expenses breakdown */
 #dExp{cursor:pointer}
 #dExp:focus-visible{outline:2px solid var(--rosedeep);outline-offset:2px}
@@ -298,9 +325,14 @@ button.item.exrow:last-child{border-bottom:0}
 <button class="updToast" id="updToast" hidden>New version ready · Tap to update</button>
 <script>
 'use strict';
-const APP_V = 11;
+const APP_V = 12;
 const KEY = 'emz-money-v1';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+// v12: expense categories (money-out only). Stored in the data so Settings can manage them.
+const DEFAULT_CATS = [['food', 'Food', '🍜'], ['groceries', 'Groceries', '🛒'], ['bills', 'Bills', '🧾'], ['transport', 'Transport', '🚌'], ['shopping', 'Shopping', '🛍️'], ['family', 'Family', '👪'], ['health', 'Health', '💊'], ['others', 'Others', '📦']];
+const defaultCats = () => DEFAULT_CATS.map(([id, name, icon]) => ({ id, name, icon }));
+const UNCAT = { id: '', name: 'Uncategorized', icon: '🏷️' };
+const catOf = t => (t && t.cat && (S.categories || []).find(c => c.id === t.cat)) || null;
 function defaultState() {
   return {
     version: 1,
@@ -313,6 +345,7 @@ function defaultState() {
     tx: [],          // {id,type:'in'|'out'|'transfer',amount,account,to,date,note,created}
     loans: [],       // {id,borrower,amount,account|null,date,note,created,more:[{id,amount,account|null,date,note,created}]} — account null = not from an account; 'more' = later tranches (v4); old 'due'/'dueDate' kept but ignored
     repayments: [],  // {id,loanId,amount,account|null,date,note,created} — account null = not into an account (v4)
+    categories: defaultCats(), // v12: [{id,name,icon}] for money-out entries (tx.cat = id; missing = Uncategorized)
     lastBackup: null
   };
 }
@@ -328,6 +361,9 @@ function migrateData(d) {
   for (const a of d.accounts || []) if (typeof a.inNetWorth !== 'boolean') { a.inNetWorth = !SEP_ACCTS.includes(normName(a.name)); changed = true; }
   // loans financed by someone else are saved as "Name (Other person)" → kept separate by default
   for (const l of d.loans || []) if (typeof l.inNetWorth !== 'boolean') { l.inNetWorth = !/\(.+\)/.test(String(l.borrower || '')); changed = true; }
+  // v12: data / backups from before categories get the default list; their expenses stay Uncategorized
+  if (!Array.isArray(d.categories)) { d.categories = defaultCats(); changed = true; }
+  else d.categories = d.categories.filter(c => c && c.id != null && String(c.name || '').trim()).map(c => ({ ...c, id: String(c.id), icon: c.icon || '🏷️' }));
   return changed;
 }
 function load() {
@@ -527,6 +563,7 @@ function txForm(root, tx, defAcct) {
   const first = S.accounts[0] ? S.accounts[0].id : null;
   let from = tx ? tx.account : (defAcct || (acct(addAcct) ? addAcct : first)); if (!tx) addAcct = null;
   let to = tx ? tx.to : (S.accounts.find(a => a.id !== from) || {}).id;
+  let cat = tx ? (catOf(tx) ? tx.cat : null) : lastCat(); // v12: optional category for money out
   const draw = () => {
     const amt = root.querySelector('#amt') ? root.querySelector('#amt').value : (tx ? tx.amount : '');
     const date = root.querySelector('#date') ? root.querySelector('#date').value : (tx ? tx.date : todayISO());
@@ -542,6 +579,7 @@ function txForm(root, tx, defAcct) {
       <input id="amt" class="amt" inputmode="decimal" placeholder="0.00" value="${esc(amt)}" autocomplete="off">
       <label>${mode === 'transfer' ? 'From account' : 'Account'}</label>${chipsHTML('fromChips', from)}
       ${mode === 'transfer' ? `<label>To account</label>${chipsHTML('toChips', to, from)}` : ''}
+      ${mode === 'out' ? catChipsHTML(cat) : ''}
       <label for="date">Date</label><input id="date" type="date" value="${esc(date)}">
       <label for="note">Note (optional)</label><input id="note" value="${esc(note)}" placeholder="${mode === 'in' ? 'e.g. salary' : mode === 'out' ? 'e.g. groceries' : ''}">
       <button class="btn ${mode === 'in' ? 'green' : ''}" id="saveTx">${tx ? 'Save changes' : mode === 'in' ? 'Save money in' : mode === 'out' ? 'Save money out' : 'Save transfer'}</button>
@@ -549,6 +587,12 @@ function txForm(root, tx, defAcct) {
     root.querySelectorAll('#modeSeg button').forEach(b => b.onclick = () => { mode = b.dataset.m; if (!tx) addMode = mode; draw(); });
     bindChips(root, 'fromChips', id => { from = id; if (mode === 'transfer') draw(); });
     bindChips(root, 'toChips', id => { to = id; });
+    root.querySelectorAll('#catChips .cchip').forEach(b => b.onclick = () => { // tap again to clear (Uncategorized)
+      cat = cat === b.dataset.id ? null : b.dataset.id;
+      root.querySelectorAll('#catChips .cchip').forEach(x => { const on = x.dataset.id === cat; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+      const st = root.querySelector('#catState'); if (st) st.textContent = cat ? '' : 'Uncategorized';
+    });
+    const ce = root.querySelector('#catEdit'); if (ce) ce.onclick = () => { closeModal(); go('set'); setTimeout(() => { const c = $('#catCard'); if (c) c.scrollIntoView({ block: 'start' }); }, 0); };
     root.querySelector('#saveTx').onclick = () => {
       const amount = parseAmt(root.querySelector('#amt').value);
       if (!(amount > 0)) { toast('Enter an amount above ₱0'); return; }
@@ -556,7 +600,9 @@ function txForm(root, tx, defAcct) {
       if (mode === 'transfer' && (!to || to === from || !acct(to))) { toast('Pick a different “to” account'); return; }
       const d = root.querySelector('#date').value || todayISO();
       const rec = { type: mode, amount, account: from, to: mode === 'transfer' ? to : null, date: d, note: root.querySelector('#note').value.trim() };
-      if (tx) { Object.assign(tx, rec); save(); closeModal(); refreshAfterEdit(); toast('Saved'); }
+      if (mode === 'out' && cat && S.categories.some(c => c.id === cat)) rec.cat = cat;
+      if (mode === 'out') setLastCat(rec.cat || null);
+      if (tx) { delete tx.cat; Object.assign(tx, rec); save(); closeModal(); refreshAfterEdit(); toast('Saved'); }
       else {
         S.tx.push(Object.assign({ id: uid(), created: Date.now() }, rec)); save();
         toast(mode === 'transfer' ? `Moved ${amtT(amount, 'a:' + from)} to ${acctName(to)}` : `${mode === 'in' ? 'Added' : 'Spent'} ${amtT(amount, 'a:' + from)} · ${acctName(from)} now ${amtT(balance(from), 'a:' + from)}`);
@@ -567,6 +613,14 @@ function txForm(root, tx, defAcct) {
     if (del) del.onclick = () => { if (!confirm('Delete this entry?')) return; S.tx = S.tx.filter(x => x !== tx); save(); closeModal(); refreshAfterEdit(); toast('Deleted'); };
   };
   draw();
+}
+const LASTCAT_KEY = 'emz-money-lastcat-v1'; // form remembers the last category used (this phone only)
+function lastCat() { let v = null; try { v = localStorage.getItem(LASTCAT_KEY); } catch (e) {} return v && S.categories.some(c => c.id === v) ? v : null; }
+function setLastCat(v) { try { if (v) localStorage.setItem(LASTCAT_KEY, v); else localStorage.removeItem(LASTCAT_KEY); } catch (e) {} }
+function catChipsHTML(sel) {
+  return `<div class="lblrow"><label>Category <small class="muted">optional</small></label><button type="button" class="linkbtn" id="catEdit">Edit</button></div>
+    <div id="catChipsWrap"><div class="catchips" id="catChips" role="group" aria-label="Category">${S.categories.map(c => `<button type="button" class="cchip${c.id === sel ? ' on' : ''}" data-id="${esc(c.id)}" aria-pressed="${c.id === sel}"><span class="ce" aria-hidden="true">${esc(c.icon)}</span><span class="cn">${esc(c.name)}</span></button>`).join('')}</div></div>
+    <div class="muted catstate" id="catState">${sel ? '' : 'Uncategorized'}</div>`;
 }
 let reopen = null; // re-open the account / loan sheet after editing inside it
 function refreshAfterEdit() { render(); if (reopen) { const f = reopen; reopen = null; f(); } }
@@ -645,11 +699,14 @@ const curMonth = () => todayISO().slice(0, 7);
 const addMonth = (m, d) => { const [y, mo] = m.split('-').map(Number); const t = new Date(y, mo - 1 + d, 1); return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0'); };
 const monthLabel = (m, short) => { const [y, mo] = m.split('-').map(Number); return new Date(y, mo - 1, 1).toLocaleDateString('en-GB', short ? { month: 'long' } : { month: 'long', year: 'numeric' }); };
 const monthOut = m => S.tx.filter(t => t.type === 'out' && (t.date || '').slice(0, 7) === m);
-function openExp() { expMonth = curMonth(); go('exp'); }
+function openExp() { expMonth = curMonth(); expCat = null; go('exp'); }
 function expGo(d) { const m = addMonth(expMonth || curMonth(), d); if (m > curMonth()) return; expMonth = m; render(); }
+let expCat = null; // category filter on the list (null = all; '' = Uncategorized)
+function expFilter(id) { expCat = expCat === id ? null : id; render(); const l = $('#expListHead'); if (l && expCat !== null) l.scrollIntoView({ block: 'nearest' }); }
+const catLabel = id => { const c = id ? S.categories.find(x => x.id === id) : null; return c || UNCAT; };
 function expHTML() {
-  const m = expMonth || (expMonth = curMonth()), K = 'd:exp', list = monthOut(m).sort(byNewest);
-  const totC = list.reduce((x, t) => x + cents(t.amount), 0), prev = addMonth(m, -1), prevC = monthOut(prev).reduce((x, t) => x + cents(t.amount), 0);
+  const m = expMonth || (expMonth = curMonth()), K = 'd:exp', all = monthOut(m).sort(byNewest);
+  const totC = all.reduce((x, t) => x + cents(t.amount), 0), prev = addMonth(m, -1), prevC = monthOut(prev).reduce((x, t) => x + cents(t.amount), 0);
   const pm = monthLabel(prev, prev.slice(0, 4) !== m.slice(0, 4) ? 0 : 1), d = totC - prevC;
   const cmp = !totC && !prevC ? `Nothing spent in ${pm} either` : !prevC ? `Nothing spent in ${pm}` : !d ? `Same as ${pm}` : `${amt(Math.abs(d) / 100, K)} ${d < 0 ? 'less' : 'more'} than ${pm}`;
   const atMax = m >= curMonth();
@@ -657,20 +714,33 @@ function expHTML() {
     <div class="mpick" id="mPick"><button type="button" id="mPrev" onclick="expGo(-1)" aria-label="Previous month">‹</button><div id="mLabel" aria-live="polite">${monthLabel(m)}</div><button type="button" id="mNext" onclick="expGo(1)" aria-label="Next month" ${atMax ? 'disabled' : ''}>›</button></div>
     <div class="card hero" id="expCard"><div class="eyecard">${ico('receipt')}<div class="grow"><div class="lbl">Spent in ${monthLabel(m, 1)}</div><div class="big" id="expTotal">${amt(totC / 100, K)}</div>
     <div class="muted" id="expCmp">${cmp}</div></div>${eyeBtn(K, 'expenses')}</div></div>`;
-  if (!list.length) return h + `<div class="card"><div class="empty" id="expEmpty">No expenses in ${monthLabel(m)}</div></div>`;
-  const by = new Map(); for (const t of list) by.set(t.account, (by.get(t.account) || 0) + cents(t.amount));
-  const rows = [...by].sort((a, b) => b[1] - a[1] || acctName(a[0]).localeCompare(acctName(b[0])));
-  h += `<h3>By account</h3><div class="card list" id="expByAcct">`;
-  for (const [id, c] of rows) {
-    const a = acct(id), pct = Math.round(c * 100 / totC);
-    h += `<div class="item exa" data-acct="${esc(id)}">${ico(a && isCash(a) ? 'cash' : 'bank')}<div class="body"><div class="t"><span class="nm">${esc(acctName(id))}</span>${a && !inNW(a) ? '<span class="septag">separate</span>' : ''}</div>
-      <div class="bar" aria-hidden="true"><i style="width:${Math.max(2, pct)}%"></i></div></div><div class="exv"><div class="amtc">${amt(c / 100, K)}</div><div class="muted pct">${pct}%</div></div></div>`;
+  const fchip = expCat === null ? '' : `<button type="button" class="fchip" id="expFilter" onclick="expFilter(null)" aria-label="Show all categories">Showing: ${esc(catLabel(expCat).icon)} ${esc(catLabel(expCat).name)} <span aria-hidden="true">×</span></button>`;
+  if (!all.length) return h + (fchip ? `<div class="fbar">${fchip}</div>` : '') + `<div class="card"><div class="empty" id="expEmpty">No expenses in ${monthLabel(m)}</div></div>`;
+  const pctOf = c => Math.round(c * 100 / totC), bar = p => `<div class="bar" aria-hidden="true"><i style="width:${Math.max(2, p)}%"></i></div>`;
+  // by category (unknown / deleted ids count as Uncategorized)
+  const byC = new Map(); for (const t of all) { const k = catOf(t) ? t.cat : ''; byC.set(k, (byC.get(k) || 0) + cents(t.amount)); }
+  const catRows = [...byC].sort((a, b) => b[1] - a[1] || catLabel(a[0]).name.localeCompare(catLabel(b[0]).name));
+  h += `<h3>By category</h3><div class="card list" id="expByCat">`;
+  for (const [id, c] of catRows) {
+    const cl = catLabel(id), p = pctOf(c), on = expCat === id;
+    h += `<button type="button" class="item exa exc${on ? ' on' : ''}${id ? '' : ' uncat'}" data-cat="${esc(id)}" aria-pressed="${on}" onclick="expFilter('${esc(id)}')" aria-label="${esc(cl.name)} — show only these"><span class="ico emo" aria-hidden="true">${esc(cl.icon)}</span><div class="body"><div class="t"><span class="nm">${esc(cl.name)}</span></div>
+      ${bar(p)}</div><div class="exv"><div class="amtc">${amt(c / 100, K)}</div><div class="muted pct">${p}%</div></div></button>`;
   }
-  h += `</div><h3>${list.length} expense${list.length === 1 ? '' : 's'}</h3><div class="card list" id="expList">`;
+  const by = new Map(); for (const t of all) by.set(t.account, (by.get(t.account) || 0) + cents(t.amount));
+  const rows = [...by].sort((a, b) => b[1] - a[1] || acctName(a[0]).localeCompare(acctName(b[0])));
+  h += `</div><h3>By account</h3><div class="card list" id="expByAcct">`;
+  for (const [id, c] of rows) {
+    const a = acct(id), p = pctOf(c);
+    h += `<div class="item exa" data-acct="${esc(id)}">${ico(a && isCash(a) ? 'cash' : 'bank')}<div class="body"><div class="t"><span class="nm">${esc(acctName(id))}</span>${a && !inNW(a) ? '<span class="septag">separate</span>' : ''}</div>
+      ${bar(p)}</div><div class="exv"><div class="amtc">${amt(c / 100, K)}</div><div class="muted pct">${p}%</div></div></div>`;
+  }
+  const list = expCat === null ? all : all.filter(t => (catOf(t) ? t.cat : '') === expCat);
+  h += `</div><h3 id="expListHead">${list.length} expense${list.length === 1 ? '' : 's'}</h3>${fchip ? `<div class="fbar">${fchip}</div>` : ''}<div class="card list" id="expList">`;
+  if (!list.length) h += `<div class="empty" id="expListEmpty">No ${esc(catLabel(expCat).name)} expenses in ${monthLabel(m)}</div>`;
   for (const t of list) {
-    const a = acct(t.account);
-    h += `<button type="button" class="item exrow" data-tx="${esc(t.id)}" onclick="reopen=null;editTx('${esc(t.id)}')" aria-label="Edit expense">${ico('out', 'out')}<div class="body"><div class="t">${esc(t.note || 'Money out')}</div>
-      <div class="muted">${fmtDate(t.date)} · ${esc(acctName(t.account))}${a && !inNW(a) ? ' <span class="septag">separate</span>' : ''}</div></div><div class="amtc minus">${hid(K) ? '' : '−'}${amt(t.amount, K)}</div></button>`;
+    const a = acct(t.account), cl = catOf(t) || UNCAT;
+    h += `<button type="button" class="item exrow" data-tx="${esc(t.id)}" onclick="reopen=null;editTx('${esc(t.id)}')" aria-label="Edit expense">${cl === UNCAT ? ico('out', 'out') : `<span class="ico emo" aria-hidden="true">${esc(cl.icon)}</span>`}<div class="body"><div class="t">${esc(t.note || 'Money out')}</div>
+      <div class="muted">${fmtDate(t.date)} · <span class="cl">${esc(cl.name)}</span> · ${esc(acctName(t.account))}${a && !inNW(a) ? ' <span class="septag">separate</span>' : ''}</div></div><div class="amtc minus">${hid(K) ? '' : '−'}${amt(t.amount, K)}</div></button>`;
   }
   return h + '</div>';
 }
@@ -838,6 +908,10 @@ function setHTML() {
       <button class="iconbtn adel" aria-label="Delete account">🗑️</button></div>
       <label class="sw"><span>Include in net worth</span><input type="checkbox" class="anw" role="switch" ${inNW(a) ? 'checked' : ''} aria-label="Include ${esc(a.name)} in net worth"></label></div>`;
   h += `</div><button class="btn light" id="addAcct">＋ Add account</button></div>
+    <div class="card" id="catCard"><h2>Expense categories</h2><div class="muted">Tap an emoji or name to change it. Deleting one makes its expenses Uncategorized.</div><div id="catList">`;
+  S.categories.forEach((c, i) => { h += `<div class="setcat" data-id="${esc(c.id)}"><input class="cicon" value="${esc(c.icon)}" aria-label="Emoji for ${esc(c.name)}" autocomplete="off"><input class="cname" value="${esc(c.name)}" aria-label="Category name" autocomplete="off">
+      <button type="button" class="iconbtn light cup" aria-label="Move ${esc(c.name)} up" ${i ? '' : 'disabled'}>↑</button><button type="button" class="iconbtn light cdown" aria-label="Move ${esc(c.name)} down" ${i < S.categories.length - 1 ? '' : 'disabled'}>↓</button><button type="button" class="iconbtn cdel" aria-label="Delete ${esc(c.name)}">🗑️</button></div>`; });
+  h += `</div><button class="btn light" id="addCat">＋ Add category</button></div>
     <div class="card"><h2>Backup</h2><div class="muted" id="lastBackup">${S.lastBackup ? `Last copy off the phone: ${fmtDate(new Date(S.lastBackup - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10))} (${ds === 0 ? 'today' : ds + ' day' + (ds === 1 ? '' : 's') + ' ago'})` : 'No copy off the phone yet'}</div>
     <div class="muted" style="margin-top:4px">Auto backups below are kept on this phone only. Copy or share a backup to yourself (e.g. Messenger, email) now and then.</div>
     <div class="muted" id="storageStatus" style="margin-top:4px">${storagePersisted === true ? '🔒 Storage: persistent — Chrome won’t clear it to free space' : storagePersisted === false ? '⚠️ Storage: not persistent — Chrome may clear it if the phone runs low on space' : 'Storage: checking…'}</div>
@@ -864,6 +938,26 @@ function bindSettings() {
       S.accounts = S.accounts.filter(x => x !== a); save(); render(); toast('Account deleted');
     };
   });
+  const firstGrapheme = v => { v = String(v || '').trim(); if (!v) return ''; try { if (Intl.Segmenter) return [...new Intl.Segmenter().segment(v)][0].segment; } catch (e) {} return [...v].slice(0, 2).join(''); };
+  document.querySelectorAll('.setcat').forEach(row => {
+    const c = S.categories.find(x => x.id === row.dataset.id); if (!c) return;
+    const i = () => S.categories.indexOf(c);
+    row.querySelector('.cname').onchange = e => { const v = e.target.value.trim(); if (!v) { e.target.value = c.name; toast('Name can’t be empty'); return; } c.name = v; save(); toast('Category renamed'); };
+    row.querySelector('.cicon').onchange = e => { const v = firstGrapheme(e.target.value); if (!v) { e.target.value = c.icon; toast('Pick an emoji'); return; } c.icon = v; e.target.value = v; save(); toast('Emoji changed'); };
+    const mv = d => { const k = i(), j = k + d; if (j < 0 || j >= S.categories.length) return; S.categories.splice(k, 1); S.categories.splice(j, 0, c); save(); render(); const r = document.querySelector(`.setcat[data-id="${CSS.escape(c.id)}"] .${d < 0 ? 'cup' : 'cdown'}`); if (r && !r.disabled) r.focus(); };
+    row.querySelector('.cup').onclick = () => mv(-1); row.querySelector('.cdown').onclick = () => mv(1);
+    row.querySelector('.cdel').onclick = () => {
+      const used = S.tx.filter(t => t.cat === c.id);
+      if (!confirm(`Delete category “${c.name}”?` + (used.length ? `\n${used.length} expense${used.length === 1 ? '' : 's'} will become Uncategorized.` : ''))) return;
+      for (const t of used) delete t.cat;
+      S.categories = S.categories.filter(x => x !== c); if (lastCat() === null) setLastCat(null); save(); render(); toast('Category deleted');
+    };
+  });
+  $('#addCat').onclick = () => {
+    const name = (prompt('New category name', '') || '').trim(); if (!name) return;
+    if (S.categories.some(c => normName(c.name) === normName(name))) { toast('That category already exists'); return; }
+    S.categories.push({ id: 'c' + uid(), name, icon: '🏷️' }); save(); render(); toast('Category added — tap 🏷️ to pick an emoji');
+  };
   $('#addAcct').onclick = () => {
     const name = (prompt('New account name', 'BPI ') || '').trim(); if (!name) return;
     const nid = uid(), wasAll = allHidden(); S.accounts.push({ id: nid, name, type: /cash/i.test(name) ? 'cash' : 'bank', opening: 0, inNetWorth: true }); if (wasAll) { P.h['a:' + nid] = true; savePriv(); } save(); render(); toast('Account added');
@@ -918,12 +1012,12 @@ function restoreForm() {
 }
 function csvText() {
   const q = v => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-  const rows = [['Date', 'Type', 'Account', 'To account', 'Amount', 'Borrower', 'Note']];
-  for (const a of S.accounts) rows.push(['', 'Opening balance', a.name, '', r2(a.opening).toFixed(2), '', '']);
+  const rows = [['Date', 'Type', 'Account', 'To account', 'Amount', 'Borrower', 'Note', 'Category']];
+  for (const a of S.accounts) rows.push(['', 'Opening balance', a.name, '', r2(a.opening).toFixed(2), '', '', '']);
   const all = [];
-  for (const t of S.tx) all.push([t.date, t.type === 'in' ? 'Money in' : t.type === 'out' ? 'Money out' : 'Transfer', acctName(t.account), t.type === 'transfer' ? acctName(t.to) : '', r2(t.amount).toFixed(2), '', t.note || '']);
-  for (const l of S.loans) for (const t of tranches(l)) all.push([t.date, t.first ? 'Loan given' : 'Loan given (more)', acctName(t.account), '', r2(t.amount).toFixed(2), l.borrower, t.note || '']);
-  for (const r of S.repayments) { const l = S.loans.find(x => x.id === r.loanId); all.push([r.date, 'Repayment', acctName(r.account), '', r2(r.amount).toFixed(2), l ? l.borrower : '', r.note || '']); }
+  for (const t of S.tx) all.push([t.date, t.type === 'in' ? 'Money in' : t.type === 'out' ? 'Money out' : 'Transfer', acctName(t.account), t.type === 'transfer' ? acctName(t.to) : '', r2(t.amount).toFixed(2), '', t.note || '', t.type === 'out' ? (catOf(t) || UNCAT).name : '']);
+  for (const l of S.loans) for (const t of tranches(l)) all.push([t.date, t.first ? 'Loan given' : 'Loan given (more)', acctName(t.account), '', r2(t.amount).toFixed(2), l.borrower, t.note || '', '']);
+  for (const r of S.repayments) { const l = S.loans.find(x => x.id === r.loanId); all.push([r.date, 'Repayment', acctName(r.account), '', r2(r.amount).toFixed(2), l ? l.borrower : '', r.note || '', '']); }
   all.sort((a, b) => a[0].localeCompare(b[0])).forEach(r => { r[0] = fmtDate(r[0]); rows.push(r); });
   return rows.map(r => r.map(q).join(',')).join('\n');
 }

@@ -1,4 +1,4 @@
-const CACHE = 'emz-money-v11';
+const CACHE = 'emz-money-v12';
 const CORE = ['./', './index.html', './manifest.json'];
 const ASSETS = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './fonts/manrope-400-800.woff2', './fonts/playfair-title.woff2'];
 // v7: no skipWaiting on install. A first install activates straight away anyway (nothing to replace);
